@@ -40,3 +40,4 @@ class HtmlParser {
 	HtmlParser();
 	virtual ~HtmlParser() { }
 };
+
