@@ -387,4 +387,3 @@ HtmlParser::parse_html(const string &body)
 	}
     }
 }
-
