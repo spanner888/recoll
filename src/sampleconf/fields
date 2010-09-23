@@ -1,0 +1,103 @@
+# @(#$Id: fields,v 1.5 2008-10-08 08:27:34 dockes Exp $  (C) 2007 J.F.Dockes
+# Field names configuration. This defines how one may search ie for 
+#   author:Hemingway
+#
+# Important: 
+#   - the field names MUST be all lowercase alphabetic ascii here. They can
+#     be anycased in the documents.
+
+#####################################################
+# This section defines what prefix the terms inside named fields will be
+# indexed with (in addition to prefix-less indexing for general search)
+# ALL prefixes MUST be all UPPERCASE. Extension prefixes begin with X 
+# 
+# The choice of field names is rather arbitrary. Use of any of the aliases
+# defined in the following section will yield exactly the same results,
+# (both for indexing and search).
+[prefixes]
+
+# Native fields matching omega uses, which we index without an X first
+# letter. Don't change these. Caption is used for 'title' to keep a last
+# remnant of omega compatibility inside the data record
+caption = S
+author = A
+keywords = K
+
+# Extension examples. These are actually used by default by Recoll, you can
+# add your own to search for fields produced by the filters and not handled
+# by default.
+ext = XE
+filename = XSFN
+recipient = XTO
+
+############################
+# Some fields are stored in the document data record inside the index and
+# can be returned in result lists. There is no necessity that stored fields
+# should be indexed (have a prefix in the preceding section) (example:
+# "url", but this one doesn't need to be listed here, it's stored by hard
+# code)
+#
+# Some fields are stored by default, don't add them here, else they will be
+# stored twice: caption, keywords, abstract, mimetype, url
+# Only canonical names should be used here, not aliases.
+# "author" used to be stored by default, now set here as optional
+# "rclaptg" is used for viewer specialization (depending on local config)
+[stored]
+author=
+rclaptg=
+rclbes=
+
+##########################
+# This section defines field names aliases or synonyms. Any right hand side
+# value will be turned into the lhs canonic name before further treatment
+#
+# The left-hand values in the recoll distribution file are well known and
+# must match names used in the c++ code, or even the index data
+# record. They can't change! But you can add others.
+#
+# Filters should only add canonic names to the meta array when indexing,
+# not aliases.
+
+[aliases]
+abstract = summary dc:summary description xesam:description
+author = creator dc:creator xesam:author xesam:creator from
+caption = title title dc:title subject
+# catg = dc:type contentCategory
+dbytes = size xesam:size
+dmtime = date dc:date dc:datemodified datemodified contentmodified \
+       xesam:contentmodified
+ext = fileextension xesam:fileextension
+# Don't add subject to keywords aliases, it's better to keep it for email
+keywords = keyword xesam:keyword tag tags dc:subject xesam:subject \
+	 dc:description
+mtype = mime mimetype xesam:mimetype contenttype xesam:contenttype dc:format
+recipient = to xesam:recipient
+url = dc:identifier xesam:url
+
+#########################
+# This section defines a hierarchy for field names. Searching for a lhs
+# ancestor will be expanded to a search for itself and all rhs descendants
+# This is not used for now
+[specialisations]
+author = from
+
+######################
+# Section to define translations from extended file attribute names to
+# field names. xattr use must be enabled at compile time for this to be
+# used. Enter translations as "xattrname = fieldname". Case matters.
+[xattrtofields]
+
+
+########################
+# Sections reserved for specific filters follow
+#
+
+##########################
+# Mail filter section. You can specify mail headers to be indexed 
+# in addition to the standard ones: (To:, Cc:, From:, Subject:, Date, 
+# Message-Id), along with the field name to be used. For this to be useful, 
+# the field name should also be listed in the [prefixes] and possibly the
+# [stored] sections.
+#
+# [mail]
+# x-my-tag = mymailtag

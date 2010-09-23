@@ -1,0 +1,119 @@
+#!/bin/sh
+# Install recoll files.
+
+fatal()
+{
+    echo $*
+    exit 1
+}
+usage()
+{
+    fatal 'Usage: recollinstall [<prefixdir>], ie: recollinstall /usr/local'
+}
+
+if test $# -eq 0 ; then
+   PREFIX=@prefix@
+elif test $# -eq 1 ; then
+   PREFIX=$1
+else
+   usage
+fi
+QTGUI=@QTGUI@
+# The .qm files are in qtgui/i18n even if qt4 is used
+I18N=qtgui/i18n
+
+test -n "$bindir" || bindir=${PREFIX}/bin
+test -n "$datadir" || datadir=${PREFIX}/share
+if test -z "$mandir" ; then 
+   if test -d ${PREFIX}/man ; then
+      mandir=${PREFIX}/man
+   else
+      mandir=${datadir}/man
+   fi
+fi
+
+if test -n "$DESTDIR" ; then
+   PREFIX=$DESTDIR/$PREFIX
+   bindir=$DESTDIR/$bindir
+   datadir=$DESTDIR/$datadir
+   mandir=$DESTDIR/$mandir
+fi
+
+echo "Installing to $PREFIX"
+
+# Note: solaris 'install' does not understand -v
+INSTALL=${INSTALL:="install -c"}
+STRIP=${STRIP:=strip}
+
+sys=`uname`
+@NOQTMAKE@if test "$sys" = Darwin ; then
+@NOQTMAKE@    RECOLLPROG=${QTGUI}/recoll.app/Contents/MacOS/recoll
+@NOQTMAKE@else
+@NOQTMAKE@    RECOLLPROG=${QTGUI}/recoll
+@NOQTMAKE@fi
+
+TESTPROG=index/recollindex
+test -x $TESTPROG || fatal "$TESTPROG does not exist." \
+     " You need to build first (type 'make')."
+
+for d in \
+    ${bindir} \
+    ${mandir}/man1 \
+    ${mandir}/man5 \
+    ${datadir}/icons \
+    ${datadir}/recoll/doc \
+    ${datadir}/recoll/examples \
+    ${datadir}/recoll/filters \
+    ${datadir}/recoll/images \
+    ${datadir}/recoll/translations \
+    ${datadir}/icons/hicolor/48x48/apps \
+    ${datadir}/pixmaps
+do
+    test -d $d || mkdir -p $d || exit 1
+done
+
+@NOQTMAKE@test -d ${datadir}/applications \
+@NOQTMAKE@  || mkdir -p ${datadir}/applications || exit 1
+
+
+# Use the xdg utilies to install the desktop file and icon? Couldn't find
+# out how to get this to work sanely. So keep the old way
+#PATH=$PATH:desktop/xdg-utils-1.0.1/scripts
+#export PATH
+#xdg-desktop-menu install desktop/recoll-searchgui.desktop
+#xdg-icon-resource install --size 48 desktop/recoll.png
+@NOQTMAKE@${INSTALL} -m 0444 desktop/recoll-searchgui.desktop ${datadir}/applications
+@NOQTMAKE@${INSTALL} -m 0444 desktop/recoll.png ${datadir}/icons/hicolor/48x48/apps
+@NOQTMAKE@${INSTALL} -m 0444 desktop/recoll.png ${datadir}/pixmaps/
+
+${INSTALL} -m 0444 doc/user/usermanual.html doc/user/docbook.css \
+			${datadir}/recoll/doc 
+@NOQTMAKE@${INSTALL} -m 0444 doc/man/recoll.1 ${mandir}/man1/
+@NOCMDLINE@${INSTALL} -m 0444 doc/man/recollq.1 ${mandir}/man1/
+${INSTALL} -m 0444 doc/man/recollindex.1 ${mandir}/man1/
+${INSTALL} -m 0444 doc/man/recoll.conf.5  ${mandir}/man5/
+
+@NOQTMAKE@${INSTALL} -m 0755 ${RECOLLPROG} ${bindir} || exit 1
+@NOQTMAKE@${STRIP} ${bindir}/recoll 
+@NOCMDLINE@${INSTALL} -m 0755 query/recollq ${bindir} || exit 1
+@NOCMDLINE@${STRIP} ${bindir}/recollq 
+${INSTALL} -m 0755 index/recollindex ${bindir} || exit 1
+${STRIP} ${bindir}/recollindex
+
+${INSTALL} -m 0755 filters/rcl* ${datadir}/recoll/filters/ || exit 1
+${INSTALL} -m 0755 desktop/xdg-utils-1.0.1/scripts/xdg-open \
+	   ${datadir}/recoll/filters/ || exit 1
+
+${INSTALL} -m 0444 \
+	   sampleconf/mimeconf \
+	   sampleconf/mimeview \
+	   sampleconf/recoll.conf \
+           sampleconf/mimemap \
+           sampleconf/fields \
+	   ${datadir}/recoll/examples/ || exit 1
+${INSTALL} -m 0755 index/rclmon.sh ${datadir}/recoll/examples/ || exit 1
+
+
+${INSTALL} -m 0444 qtgui/mtpics/*.png ${datadir}/recoll/images || exit 1
+
+${INSTALL} -m 0444 ${I18N}/recoll*.qm ${datadir}/recoll/translations || exit 1

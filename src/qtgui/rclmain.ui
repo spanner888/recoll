@@ -1,0 +1,398 @@
+<!DOCTYPE UI><UI version="3.3" stdsetdef="1">
+<class>RclMainBase</class>
+<widget class="QMainWindow">
+    <property name="name">
+        <cstring>RclMainBase</cstring>
+    </property>
+    <property name="geometry">
+        <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>800</width>
+            <height>600</height>
+        </rect>
+    </property>
+    <property name="sizePolicy">
+        <sizepolicy>
+            <hsizetype>5</hsizetype>
+            <vsizetype>5</vsizetype>
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+        </sizepolicy>
+    </property>
+    <property name="caption">
+        <string>Recoll</string>
+    </property>
+    <vbox>
+        <property name="name">
+            <cstring>unnamed</cstring>
+        </property>
+        <property name="margin">
+            <number>4</number>
+        </property>
+        <property name="spacing">
+            <number>2</number>
+        </property>
+        <widget class="QLayoutWidget">
+            <property name="name">
+                <cstring>layout4</cstring>
+            </property>
+            <vbox>
+                <property name="name">
+                    <cstring>unnamed</cstring>
+                </property>
+                <property name="margin">
+                    <number>2</number>
+                </property>
+                <property name="spacing">
+                    <number>2</number>
+                </property>
+                <widget class="SSearch">
+                    <property name="name">
+                        <cstring>sSearch</cstring>
+                    </property>
+                    <property name="sizePolicy">
+                        <sizepolicy>
+                            <hsizetype>7</hsizetype>
+                            <vsizetype>0</vsizetype>
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                        </sizepolicy>
+                    </property>
+                </widget>
+                <widget class="QButtonGroup">
+                    <property name="name">
+                        <cstring>catgBGRP</cstring>
+                    </property>
+                    <property name="sizePolicy">
+                        <sizepolicy>
+                            <hsizetype>5</hsizetype>
+                            <vsizetype>0</vsizetype>
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                        </sizepolicy>
+                    </property>
+                    <property name="frameShape">
+                        <enum>GroupBoxPanel</enum>
+                    </property>
+                    <property name="frameShadow">
+                        <enum>Sunken</enum>
+                    </property>
+                    <property name="title">
+                        <string></string>
+                    </property>
+                    <property name="selectedId" stdset="0">
+                        <number>0</number>
+                    </property>
+                    <widget class="QRadioButton">
+                        <property name="name">
+                            <cstring>allRDB</cstring>
+                        </property>
+                        <property name="text">
+                            <string>All</string>
+                        </property>
+                    </widget>
+                </widget>
+                <widget class="ResList">
+                    <property name="name">
+                        <cstring>resList</cstring>
+                    </property>
+                    <property name="sizePolicy">
+                        <sizepolicy>
+                            <hsizetype>5</hsizetype>
+                            <vsizetype>5</vsizetype>
+                            <horstretch>2</horstretch>
+                            <verstretch>0</verstretch>
+                        </sizepolicy>
+                    </property>
+                </widget>
+            </vbox>
+        </widget>
+    </vbox>
+</widget>
+<menubar>
+    <property name="name">
+        <cstring>MenuBar</cstring>
+    </property>
+    <item text="&amp;File" name="fileMenu">
+        <action name="fileToggleIndexingAction"/>
+        <separator/>
+        <action name="fileEraseDocHistoryAction"/>
+        <action name="showMissingHelpers_Action"/>
+        <separator/>
+        <action name="toggleFullScreenAction"/>
+        <separator/>
+        <action name="fileExitAction"/>
+    </item>
+    <item text="&amp;Tools" name="toolsMenu">
+        <action name="toolsDoc_HistoryAction"/>
+        <action name="toolsAdvanced_SearchAction"/>
+        <action name="toolsSort_parametersAction"/>
+        <action name="toolsSpellAction"/>
+    </item>
+    <item text="&amp;Preferences" name="preferencesMenu">
+        <action name="indexConfigAction"/>
+        <separator/>
+        <action name="queryPrefsAction"/>
+        <action name="extIdxAction"/>
+        <separator/>
+    </item>
+    <separator/>
+    <item text="&amp;Help" name="helpMenu">
+        <action name="userManualAction"/>
+        <action name="showMissingHelpers_Action"/>
+        <separator/>
+        <action name="helpAbout_RecollAction"/>
+    </item>
+</menubar>
+<toolbars>
+    <toolbar dock="2">
+        <property name="name">
+            <cstring>Toolbar</cstring>
+        </property>
+        <property name="label">
+            <string>Search tools</string>
+        </property>
+        <action name="toolsAdvanced_SearchAction"/>
+        <action name="toolsSort_parametersAction"/>
+        <action name="toolsDoc_HistoryAction"/>
+        <action name="toolsSpellAction"/>
+    </toolbar>
+    <toolbar dock="2">
+        <property name="name">
+            <cstring>Toolbar1</cstring>
+        </property>
+        <property name="label">
+            <string>Result list</string>
+        </property>
+        <action name="firstPageAction"/>
+        <action name="prevPageAction"/>
+        <action name="nextPageAction"/>
+    </toolbar>
+</toolbars>
+<customwidgets>
+    <customwidget>
+        <class>SSearch</class>
+        <header location="local">ssearch_w.h</header>
+        <sizehint>
+            <width>-1</width>
+            <height>-1</height>
+        </sizehint>
+        <container>0</container>
+        <sizepolicy>
+            <hordata>5</hordata>
+            <verdata>5</verdata>
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+        </sizepolicy>
+        <signal>startSearch(RefCntr&lt;Rcl::AdvSearchData&gt;)</signal>
+    </customwidget>
+    <customwidget>
+        <class>ResList</class>
+        <header location="local">reslist.h</header>
+        <sizehint>
+            <width>300</width>
+            <height>200</height>
+        </sizehint>
+        <container>0</container>
+        <sizepolicy>
+            <hordata>5</hordata>
+            <verdata>5</verdata>
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+        </sizepolicy>
+    </customwidget>
+</customwidgets>
+<actions>
+    <action>
+        <property name="name">
+            <cstring>fileExitAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>E&amp;xit</string>
+        </property>
+        <property name="accel">
+            <string>Ctrl+Q</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>fileToggleIndexingAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>Update &amp;index</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>fileEraseDocHistoryAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;Erase document history</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>showMissingHelpers_Action</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;Show missing helpers</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>helpAbout_RecollAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;About Recoll</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>userManualAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;User manual</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>toolsDoc_HistoryAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>Document &amp;History</string>
+        </property>
+        <property name="toolTip">
+            <string>Document  History</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>toolsAdvanced_SearchAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;Advanced Search</string>
+        </property>
+        <property name="toolTip">
+            <string>Advanced/complex  Search</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>toolsSort_parametersAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;Sort parameters</string>
+        </property>
+        <property name="toolTip">
+            <string>Sort parameters</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>toolsSpellAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>Term &amp;explorer</string>
+        </property>
+        <property name="toolTip">
+            <string>Term explorer tool</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>nextPageAction</cstring>
+        </property>
+        <property name="enabled">
+            <bool>false</bool>
+        </property>
+        <property name="text">
+            <string>Next page</string>
+        </property>
+        <property name="toolTip">
+            <string>Next page of results</string>
+        </property>
+        <property name="accel">
+            <string>PgDown</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>firstPageAction</cstring>
+        </property>
+        <property name="enabled">
+            <bool>false</bool>
+        </property>
+        <property name="text">
+            <string>First page</string>
+        </property>
+        <property name="toolTip">
+            <string>Go to first page of results</string>
+        </property>
+        <property name="accel">
+            <string>Shift+Home, Ctrl+S, Ctrl+Q, Ctrl+S</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>prevPageAction</cstring>
+        </property>
+        <property name="enabled">
+            <bool>false</bool>
+        </property>
+        <property name="text">
+            <string>Previous page</string>
+        </property>
+        <property name="toolTip">
+            <string>Previous page of results</string>
+        </property>
+        <property name="accel">
+            <string>PgUp</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>indexConfigAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;Indexing configuration</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>queryPrefsAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;Query configuration</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>extIdxAction</cstring>
+        </property>
+        <property name="text">
+            <string>External index dialog</string>
+        </property>
+        <property name="menuText">
+            <string>External index dialog</string>
+        </property>
+    </action>
+    <action>
+        <property name="name">
+            <cstring>toggleFullScreenAction</cstring>
+        </property>
+        <property name="menuText">
+            <string>&amp;Full Screen</string>
+        </property>
+        <property name="accel">
+            <string>F11</string>
+        </property>
+    </action>
+</actions>
+<pixmapinproject/>
+<layoutdefaults spacing="2" margin="2"/>
+<includehints>
+    <includehint>ssearch_w.h</includehint>
+    <includehint>reslist.h</includehint>
+</includehints>
+</UI>
