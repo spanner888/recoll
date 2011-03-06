@@ -1,0 +1,7 @@
+include $(depth)/mk/commondefs
+include $(depth)/mk/localdefs
+
+ALL_CXXFLAGS = $(CXXFLAGS) $(COMMONCXXFLAGS) $(LOCALCXXFLAGS)
+
+RANLIB = ranlib
+LIBSYS = 
