@@ -1,0 +1,93 @@
+TEMPLATE        = app
+LANGUAGE        = C++
+
+CONFIG  += qt warn_on thread release 
+
+HEADERS += \
+        advsearch_w.h \
+        confgui/confgui.h \
+        confgui/confguiindex.h \
+        preview_w.h \
+        rclhelp.h \
+        rclmain_w.h \
+        reslist.h \
+        restable.h \
+        searchclause_w.h \
+        spell_w.h \
+        ssearch_w.h \
+        uiprefs_w.h \
+        viewaction_w.h \
+
+
+SOURCES += \
+        advsearch_w.cpp \
+        confgui/confgui.cpp \
+        confgui/confguiindex.cpp \
+        guiutils.cpp \
+        idxthread.cpp \
+        main.cpp \
+        preview_w.cpp \
+        rclhelp.cpp \
+        rclmain_w.cpp \
+        reslist.cpp \
+        restable.cpp \
+        searchclause_w.cpp \
+        spell_w.cpp \
+        ssearch_w.cpp \
+        uiprefs_w.cpp \
+        viewaction_w.cpp \
+
+
+
+FORMS   = \
+        advsearch.ui \
+        rclmain.ui \
+        restable.ui \
+	spell.ui \
+        ssearchb.ui \
+        uiprefs.ui \
+        viewaction.ui \
+
+RESOURCES = recoll.qrc
+
+unix {
+  UI_DIR = .ui
+  MOC_DIR = .moc
+  OBJECTS_DIR = .obj
+
+  LIBS += ../lib/librcl.a \
+       $(BSTATIC) @LIBXAPIAN@ $(LIBXAPIANSTATICEXTRA) @LIBICONV@ $(BDYNAMIC) \
+           -lz
+
+  INCLUDEPATH += ../common ../index ../internfile ../query ../unac \
+              ../utils ../aspell ../rcldb ../qtgui \
+              confgui
+  DEPENDPATH += $$INCLUDEPATH
+  POST_TARGETDEPS = ../lib/librcl.a
+}
+
+UNAME = $$system(uname -s)
+contains( UNAME, [lL]inux ) {
+          LIBS -= -liconv 
+	  LIBS += -ldl -lX11
+}
+
+contains( UNAME, GNU/kFreeBSD ) {
+          LIBS -= -liconv 
+	  LIBS += -ldl -lX11
+}
+
+contains( UNAME, SunOS ) {
+          LIBS += -ldl
+}
+
+TRANSLATIONS = \
+	     i18n/recoll_de.ts \
+             i18n/recoll_fr.ts \
+             i18n/recoll_it.ts \
+             i18n/recoll_lt.ts \
+             i18n/recoll_ru.ts \
+             i18n/recoll_tr.ts \
+             i18n/recoll_uk.ts \
+             i18n/recoll_xx.ts \
+
