@@ -10658,10 +10658,12 @@ static int convert(const char* from, const char* to,
 	  const char* tmp = space;
 	  size_t tmp_length = 2;
 	  if(iconv(cd, (ICONV_CONST char **) &tmp, &tmp_length, &out, &out_remain) == (size_t)-1) {
-	    if(errno == E2BIG)
+	      if(errno == E2BIG) {
 	      /* fall thru to the E2BIG case below */;
-	    else
-	      return -1;
+	      } else {
+		  iconv_close(cd);
+		  return -1;
+	      }
 	  } else {
 	    /* The offending character was replaced by a SPACE, skip it. */
 	    in += 2;
@@ -10670,6 +10672,7 @@ static int convert(const char* from, const char* to,
 	    break;
 	  }
 	} else {
+          iconv_close(cd);
 	  return -1;
 	}
       case E2BIG:
@@ -10690,6 +10693,7 @@ static int convert(const char* from, const char* to,
 		      DEBUG("realloc %d bytes failed\n", out_size+1);
 		  free(saved);
 		  *outp = 0;
+                  iconv_close(cd);
 		  return -1;
 	      }
 	  }
@@ -10698,6 +10702,7 @@ static int convert(const char* from, const char* to,
 	}
 	break;
       default:
+        iconv_close(cd);
 	return -1;
 	break;
       }
