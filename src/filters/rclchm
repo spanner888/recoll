@@ -1,0 +1,251 @@
+#!/usr/bin/env python
+"""Extract Html files from a Microsoft Compiled Html Help file (.chm)
+Needs at least python 2.2 for HTMLParser (chmlib needs 2.2 too)"""
+
+import sys
+import os
+import posixpath
+import urlparse
+import urllib
+
+import rclexecm
+
+try:
+    from chm import chm,chmlib
+except:
+    print "RECFILTERROR HELPERNOTFOUND python:chm"
+    sys.exit(1);
+
+try:
+    from HTMLParser import HTMLParser
+except:
+    print "RECFILTERROR HELPERNOTFOUND python:HTMLParser"
+    sys.exit(1);
+
+class ChmTopicsParser(HTMLParser):
+    """Parse the chm's Topic file which is basically
+    a listing of internal nodes (html files mostly). Build a list of
+    all nodes (self.contents), which will then be used to walk and index
+    the chm.
+
+    Most nodes in the Topic file look like the following:
+    <LI> <OBJECT type="text/sitemap">
+           <param name="Name" value="Global Module Index">
+           <param name="Local" value="modindex.html">
+          </OBJECT>
+
+    Maybe we should filter out non "text/sitemap" Objects, and maybe there are
+    things of interest whose name is not Local, but for now, we just take
+    all values for parameters named "Local" (with some filtering/massaging),
+    until proven wrong
+    """
+    def __init__(self, em):
+        HTMLParser.__init__(self)
+        self.contents = []
+        self.em = em
+        
+    def handle_starttag(self, tag, attrs):
+        #self.em.rclog("Beginning of a %s tag" % tag)
+        # If this is a param tag with name Local, we're interested in
+        # the value which lists a file ref. Discard those with #
+        # in them (references inside files)
+        # Sometimes it seems that refs are like Vendor:filename::path,
+        # we only keep the path, and only if the file matches
+
+        if tag != 'param':
+            return
+
+        name = ''
+        value = ''
+        for (nm,val) in attrs:
+            if nm == 'name':
+                name = val
+            if nm == 'value':
+                value = val
+
+        #self.em.rclog("Name [%s] value [%s]" %(name, value))
+
+        if name != 'Local' or value == '':
+            return
+        # value may be url-encoded. Decode it. If there are no % in there, will
+        # do nothing
+        value = urllib.unquote(value)
+        
+        localpath = ""
+        ll = value.split(":")
+        if len(ll) == 1:
+            localpath = value
+        elif len(ll) == 4 and ll[-1] and ll[-3]:
+            #self.em.rclog("File: %s" % ll[-3])
+            if ll[-3] == self.fname:
+                localpath = ll[-1]
+            else:
+                #self.em.rclog("SKIPPING %s" % ll[-3])
+                pass
+
+        if len(localpath) != 0 and  localpath.find("#") == -1:
+            if localpath[0] != '/':
+                localpath = "/" + localpath
+            self.contents.append(localpath)
+
+    def reset(self):
+        self.contents = []
+        self.fname = ""
+        HTMLParser.reset(self)
+
+    def setname(self, name):
+        self.fname = name
+
+def getfile(chmfile, path):
+    """Extract internal file text from chm object, given path"""
+    res, ui = chmfile.ResolveObject(path)
+    if res != chmlib.CHM_RESOLVE_SUCCESS:
+        #print "ResolveObject failed", path
+        return ""
+    res, doc = chmfile.RetrieveObject(ui)
+    if not res:
+        print "RetrieveObject failed", path
+        return ""
+    return doc
+
+
+class ChmWalker(HTMLParser):
+    """Links tree walker. This recursivelyfollows all internal links
+    found in the from the top node given as input, and augments the contents
+    list."""
+
+    def __init__(self, chm, path, contents):
+        HTMLParser.__init__(self)
+        self.chm = chm
+        self.contents = contents
+        self.path = posixpath.normpath(path)
+        self.dir = posixpath.dirname(self.path)
+        contents.append(self.path)
+        
+    def handle_starttag(self, tag, attrs):
+        if tag != 'a':
+            return
+
+        href = ''
+        for (nm,val) in attrs:
+            if nm == 'href':
+                href = val
+
+        path = ""
+        res = urlparse.urlparse(href)
+        if (not res.scheme or res.scheme.lower == "ms-its"):
+            path = res.path
+            lpath = path.split(':')
+            if len(lpath) == 3 and lpath[1] == cefilename:
+                # MS-ITS::somefile.chm:/some/path/file.htm ?
+                path = lpath[2]
+            elif len(lpath) == 1:
+                path = lpath[0]
+            else:
+                path = ""
+
+        if path:
+            #print "got path", path, "me", self.path, "dir", self.dir
+            if path[0] == "/":
+                npath = posixpath.normpath(path)
+            else:
+                npath = posixpath.normpath(posixpath.join(self.dir, path))
+            if not npath in self.contents:
+                #print("Going into [%s] paths [%s]\n" %
+                #(npath,str(self.contents)))
+                text = getfile(self.chm, npath)
+                if text:
+                    try:
+                        newwalker = ChmWalker(self.chm, npath, self.contents)
+                        newwalker.feed(text)
+                    except:
+                        pass
+        
+class rclCHM:
+    """RclExecM slave worker for extracting all files from an Msoft chm
+    file. We first extract the list of internal nodes, and them return them
+    one by one. The ipath is the node path"""
+
+    def __init__(self, em):
+        self.chm = chm.CHMFile()
+        self.tp = ChmTopicsParser(em)
+        self.currentindex = 0
+        self.em = em
+        
+    def extractone(self, path):
+        """Extract one path-named internal file from the chm file"""
+
+        #self.em.rclog("extractone: [%s]"%(path))
+        iseof = rclexecm.RclExecM.noteof
+        if self.currentindex >= len(self.tp.contents) -1:
+            iseof = rclexecm.RclExecM.eofnext
+
+        res, ui = self.chm.ResolveObject(path)
+        #self.em.rclog("extract: ResolveO: %d [%s]" % (res, ui))
+        if res != chmlib.CHM_RESOLVE_SUCCESS:
+            return (False, "", path, iseof)
+        # RetrieveObject() returns len,value
+        res, doc = self.chm.RetrieveObject(ui)
+        #self.em.rclog("extract: RetrieveObject: %d [%s]" % (res, doc))
+        if res > 0:
+            self.em.setmimetype("text/html")
+            return (True, doc, path, iseof)
+        return (False, "", path, iseof)
+    
+    def openfile(self, params):
+        """Open the chm file and build the contents list by extracting and
+        parsing the Topics object"""
+
+        self.currentindex = 0
+        self.tp.reset()
+        filename = params["filename:"]
+        if not self.chm.LoadCHM(filename):
+            self.em.rclog("LoadCHM failed")
+            return False
+        if not self.chm.GetArchiveInfo():
+            self.em.rclog("GetArchiveInfo failed")
+            return False
+
+        self.topics = self.chm.GetTopicsTree()
+        if self.topics:
+            # Parse Topics file and extract list of internal nodes
+            #self.em.rclog("Got topics");
+            self.tp.setname(os.path.basename(filename))
+            self.tp.feed(self.topics)
+            self.tp.close()
+        else:
+            # No topics. If there is a home, let's try to walk the tree
+            #self.em.rclog("GetTopicsTree failed")
+            if not self.chm.home:
+                self.em.rclog("No topics and no home")
+                return False
+            home = self.chm.home
+            if home[0] != '/':
+                home = "/" + home
+            text = getfile(self.chm, home)
+            if not text:
+                self.em.rclog("No topics and no home content")
+                return False
+            walker = ChmWalker(self.chm, self.chm.home, self.tp.contents)
+            walker.feed(text)
+            walker.close()
+
+        #self.em.rclog("Contents size %d" % len(self.tp.contents))
+        uniq = set(self.tp.contents)
+        self.tp.contents = list(uniq)
+        return True
+    
+    def getipath(self, params):
+        return self.extractone(params["ipath:"])
+        
+    def getnext(self, params):
+        if self.currentindex >= len(self.tp.contents):
+            return (False, "", "", rclexecm.RclExecM.eofnow)
+        else:
+            ret= self.extractone(self.tp.contents[self.currentindex])
+            self.currentindex += 1
+            return ret
+
+proto = rclexecm.RclExecM()
+extract = rclCHM(proto)
+rclexecm.main(proto, extract)
