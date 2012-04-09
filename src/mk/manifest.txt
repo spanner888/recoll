@@ -142,6 +142,7 @@ filters/rclabw
 filters/rclaptosidman
 filters/rclaudio
 filters/rclchm
+filters/rcldia
 filters/rcldjvu
 filters/rcldoc
 filters/rcldvi
@@ -185,8 +186,6 @@ index/
 index/Makefile
 index/beaglequeue.cpp
 index/beaglequeue.h
-index/csguess.cpp
-index/csguess.h
 index/fsindexer.cpp
 index/fsindexer.h
 index/indexer.cpp
