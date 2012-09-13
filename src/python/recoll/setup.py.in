@@ -1,0 +1,63 @@
+from distutils.core import setup, Extension
+import os
+import sys
+
+sysname = os.uname()[0]
+top = os.path.join('..', '..')
+
+libiconv = "@LIBICONV@"
+
+if libiconv.find("-liconv") != -1:
+    libs = ['rcl', 'xapian', 'iconv']
+else:
+    libs = ['rcl', 'xapian']
+
+libxapiandir="@LIBXAPIANDIR@"
+if libxapiandir != "":
+    libdirs = [os.path.join(top, 'lib'), libxapiandir, '/usr/local/lib']
+else:
+    libdirs = [os.path.join(top, 'lib'), '/usr/local/lib']
+
+# Verify that the Recoll library was compiled with the PIC options
+localdefs = os.path.join(top, 'mk', 'localdefs')
+try:
+    lines = open(localdefs, 'r').readlines()
+except:
+    print 'You need to build recoll first. Use configure --enable-pic'
+    sys.exit(1)
+picok = False
+for line in lines:
+    if line.find('PICFLAGS') == 0:
+        picok = True
+        break
+if not picok:
+    print 'You need to rebuild recoll with PIC enabled. Use configure --enable-pic and make clean'
+    sys.exit(1)
+
+                               
+module1 = Extension('recoll',
+                    define_macros = [('MAJOR_VERSION', '1'),
+                                     ('MINOR_VERSION', '0'),
+                                     ('UNAC_VERSION', '"1.0.7"'),
+                                     ('RECOLL_DATADIR', '"@QTRECOLL_DATADIR@"')
+                                     ],
+                    include_dirs = ['/usr/local/include',
+                                    os.path.join(top, 'utils'), 
+                                    os.path.join(top, 'common'), 
+                                    os.path.join(top, 'rcldb'), 
+                                    os.path.join(top, 'query'), 
+                                    os.path.join(top, 'unac')
+                                    ],
+                    libraries = libs,
+                    library_dirs = libdirs,
+                    sources = ['pyrecoll.cpp',
+                               ])
+
+setup (name = 'Recoll',
+       version = '1.0',
+       description = 'Query/Augment a Recoll full text index',
+       author = 'J.F. Dockes',
+       author_email = 'jfd@recoll.org',
+       long_description = '''
+''',
+       ext_modules = [module1])
