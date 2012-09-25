@@ -68,6 +68,11 @@ enum value_slot {
     VALUE_SIG = 10      // Doc sig as chosen by app (ex: mtime+size
 };
 
+enum abstract_result {
+    ABSRES_ERROR = 0,
+    ABSRES_OK = 1,
+    ABSRES_TRUNC = 2
+};
 class SearchData;
 class TermIter;
 class Query;
@@ -291,11 +296,21 @@ class Db {
 
     /** Set parameters for synthetic abstract generation */
     void setAbstractParams(int idxTrunc, int synthLen, int syntCtxLen);
+    int getAbsCtxLen() const 
+    {
+	return m_synthAbsWordCtxLen;
+    }
 
     /** Build synthetic abstract for document, extracting chunks relevant for
      * the input query. This uses index data only (no access to the file) */
+    // Abstract return as one string
     bool makeDocAbstract(Doc &doc, Query *query, string& abstract);
+    // Returned as a snippets vector
     bool makeDocAbstract(Doc &doc, Query *query, vector<string>& abstract);
+    // Returned as a vector of pair<page,snippet> page is 0 if unknown
+    abstract_result makeDocAbstract(Doc &doc, Query *query, 
+				    vector<pair<int, string> >& abstract, 
+				    int maxoccs= -1, int ctxwords = -1);
     /** Retrieve detected page breaks positions */
     int getFirstMatchPage(Doc &doc, Query *query);
 
