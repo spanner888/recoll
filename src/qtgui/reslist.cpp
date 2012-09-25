@@ -50,6 +50,7 @@
 #include "refcntr.h"
 #include "internfile.h"
 #include "indexer.h"
+#include "snippets_w.h"
 
 #include "reslist.h"
 #include "moc_reslist.cpp"
@@ -281,7 +282,7 @@ static PlainToRichQtReslist g_hiliter;
 /////////////////////////////////////
 
 ResList::ResList(QWidget* parent, const char* name)
-    : RESLIST_PARENTCLASS(parent)
+    : RESLIST_PARENTCLASS(parent), m_parent(0)
 {
     if (!name)
 	setObjectName("resList");
@@ -902,6 +903,9 @@ void ResList::createPopupMenu(const QPoint& pos)
 		      this, SLOT(menuPreviewParent()));
     popup->addAction(tr("&Open Parent document/folder"), 
 		     this, SLOT(menuOpenParent()));
+    if (m_source->snippetsCapable()) 
+	popup->addAction(tr("Open &Snippets window"), 
+			 this, SLOT(menuOpenSnippets()));
     popup->popup(mapToGlobal(pos));
 }
 
@@ -951,6 +955,20 @@ void ResList::menuOpenParent()
 	pdoc.mimetype = "application/x-fsdirectory";
 	emit editRequested(pdoc);
     }
+}
+
+void ResList::menuOpenSnippets()
+{
+    Rcl::Doc doc;
+    if (!getDoc(m_popDoc, doc) || m_source.isNull()) 
+	return;
+    SnippetsW *sp = new SnippetsW(doc, m_source);
+    if (m_parent) {
+	connect(sp, SIGNAL(startNativeViewer(Rcl::Doc, int)),
+		m_parent, SLOT(startNativeViewer(Rcl::Doc, int)));
+    }
+		
+    sp->show();
 }
 
 void ResList::menuEdit()

@@ -230,7 +230,9 @@ static void listList(const string&, const vector<string>&)
 }
 #endif
 
-// Retrieve and store db-wide frequencies for the query terms.
+// Retrieve db-wide frequencies for the query terms and store them in
+// the query object. This is done at most once for a query, and the data is used
+// while computing abstracts for the different result documents.
 void Db::Native::setDbWideQTermsFreqs(Query *query)
 {
     // Do it once only for a given query.
@@ -252,7 +254,7 @@ void Db::Native::setDbWideQTermsFreqs(Query *query)
     for (vector<string>::const_iterator qit = qterms.begin(); 
 	 qit != qterms.end(); qit++) {
 	query->m_nq->termfreqs[*qit] = xrdb.get_termfreq(*qit) / doccnt;
-	LOGABS(("makeAbstract: [%s] db freq %.1e\n", qit->c_str(), 
+	LOGABS(("set..QTermFreqs: [%s] db freq %.1e\n", qit->c_str(), 
 		query->m_nq->termfreqs[*qit]));
     }
 }
@@ -306,6 +308,7 @@ double Db::Native::qualityTerms(Xapian::docid docid,
     }
 
 #ifdef DEBUGABSTRACT
+    LOGDEB(("Db::qualityTerms:\n"));
     for (multimap<double, string>::reverse_iterator qit = byQ.rbegin(); 
 	 qit != byQ.rend(); qit++) {
 	LOGDEB(("%.1e->[%s]\n", qit->first, qit->second.c_str()));
@@ -317,6 +320,7 @@ double Db::Native::qualityTerms(Xapian::docid docid,
 // Return the positions list for the page break term
 bool Db::Native::getPagePositions(Xapian::docid docid, vector<int>& vpos)
 {
+    vpos.clear();
     // Need to retrieve the document record to check for multiple page breaks
     // that we store there for lack of better place
     map<int, int> mbreaksmap;
@@ -422,25 +426,26 @@ int Db::Native::getFirstMatchPage(Xapian::docid docid, Query *query)
 //
 // DatabaseModified and other general exceptions are catched and
 // possibly retried by our caller
-vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
+abstract_result Db::Native::makeAbstract(Xapian::docid docid, Query *query, 
+					 vector<pair<int, string> >& vabs, 
+					 int imaxoccs, int ictxwords)
 {
     Chrono chron;
-    LOGDEB2(("makeAbstract:%d: maxlen %d wWidth %d\n", chron.ms(),
-	     m_rcldb->m_synthAbsLen, m_rcldb->m_synthAbsWordCtxLen));
+    LOGDEB2(("makeAbstract:%d: maxlen %d wWidth %d imaxoccs %d\n", chron.ms(),
+	     m_rcldb->m_synthAbsLen, m_rcldb->m_synthAbsWordCtxLen, imaxoccs));
 
     // The (unprefixed) terms matched by this document
-    vector<string> terms;
-
+    vector<string> matchedTerms;
     {
         vector<string> iterms;
         query->getMatchTerms(docid, iterms);
-        noPrefixList(iterms, terms);
-        if (terms.empty()) {
+        noPrefixList(iterms, matchedTerms);
+        if (matchedTerms.empty()) {
             LOGDEB(("makeAbstract::Empty term list\n"));
-            return vector<string>();
+            return ABSRES_ERROR;
         }
     }
-    listList("Match terms: ", terms);
+    listList("Match terms: ", matchedTerms);
 
     // Retrieve the term freqencies for the query terms. This is
     // actually computed only once for a query, and for all terms in
@@ -455,12 +460,12 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
     // removing its meaning from the maximum occurrences per term test
     // used while walking the list below)
     multimap<double, string> byQ;
-    double totalweight = qualityTerms(docid, query, terms, byQ);
+    double totalweight = qualityTerms(docid, query, matchedTerms, byQ);
     LOGABS(("makeAbstract:%d: computed Qcoefs.\n", chron.ms()));
     // This can't happen, but would crash us
     if (totalweight == 0.0) {
 	LOGERR(("makeAbstract: totalweight == 0.0 !\n"));
-	return vector<string>();
+	return ABSRES_ERROR;
     }
 
     ///////////////////
@@ -473,20 +478,24 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
     // terms, at their positions around the search terms positions:
     map<unsigned int, string> sparseDoc;
 
-    // All the chosen query term positions. 
-    vector<unsigned int> qtermposs; 
+    // Total number of occurences for all terms. We stop when we have too much
+    unsigned int totaloccs = 0;
 
     // Limit the total number of slots we populate. The 7 is taken as
     // average word size. It was a mistake to have the user max
     // abstract size parameter in characters, we basically only deal
     // with words. We used to limit the character size at the end, but
     // this damaged our careful selection of terms
-    const unsigned int maxtotaloccs = 
+    const unsigned int maxtotaloccs = imaxoccs > 0 ? imaxoccs :
 	m_rcldb->m_synthAbsLen /(7 * (m_rcldb->m_synthAbsWordCtxLen+1));
-    LOGABS(("makeAbstract:%d: mxttloccs %d\n", chron.ms(), maxtotaloccs));
+    int ctxwords = ictxwords == -1 ? m_rcldb->m_synthAbsWordCtxLen : ictxwords;
+    LOGABS(("makeAbstract:%d: mxttloccs %d ctxwords %d\n", 
+	    chron.ms(), maxtotaloccs, ctxwords));
 
     // This is used to mark positions overlapped by a multi-word match term
     const string occupiedmarker("?");
+
+    abstract_result ret = ABSRES_OK;
 
     // Let's go populate
     for (multimap<double, string>::reverse_iterator qit = byQ.rbegin(); 
@@ -508,7 +517,10 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
 
 	Xapian::PositionIterator pos;
 	// There may be query terms not in this doc. This raises an
-	// exception when requesting the position list, we catch it.
+	// exception when requesting the position list, we catch it ??
+	// Not clear how this can happen because we are walking the
+	// match list returned by Xapian. Maybe something with the
+	// fields?
 	string emptys;
 	try {
 	    unsigned int occurrences = 0;
@@ -519,14 +531,14 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
 		    continue;
 		LOGABS(("makeAbstract: [%s] at %d occurrences %d maxoccs %d\n",
 			qterm.c_str(), ipos, occurrences, maxoccs));
-		// Remember the term position
-		qtermposs.push_back(ipos);
+
+		totaloccs++;
 
 		// Add adjacent slots to the set to populate at next
 		// step by inserting empty strings. Special provisions
 		// for adding ellipsis and for positions overlapped by
 		// the match term.
-		unsigned int sta = MAX(0, ipos-m_rcldb->m_synthAbsWordCtxLen);
+		unsigned int sta = MAX(0, ipos - ctxwords);
 		unsigned int sto = ipos + qtrmwrdcnt-1 + 
 		    m_rcldb->m_synthAbsWordCtxLen;
 		for (unsigned int ii = sta; ii <= sto;  ii++) {
@@ -552,23 +564,29 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
 
 		// Limit to allocated occurences and total size
 		if (++occurrences >= maxoccs || 
-		    qtermposs.size() >= maxtotaloccs)
+		    totaloccs >= maxtotaloccs) {
+		    ret = ABSRES_TRUNC;
+		    LOGDEB(("Db::makeAbstract: max occurrences cutoff\n"));
 		    break;
+		}
 	    }
 	} catch (...) {
 	    // Term does not occur. No problem.
 	}
-	if (qtermposs.size() >= maxtotaloccs)
+	if (totaloccs >= maxtotaloccs) {
+	    ret = ABSRES_TRUNC;
+	    LOGDEB(("Db::makeAbstract: max1 occurrences cutoff\n"));
 	    break;
+	}
     }
     LOGABS(("makeAbstract:%d:chosen number of positions %d\n", 
-	    chron.millis(), qtermposs.size()));
+	    chron.millis(), totaloccs));
 
     // This can happen if there are term occurences in the keywords
     // etc. but not elsewhere ?
-    if (qtermposs.size() == 0) {
+    if (totaloccs == 0) {
 	LOGDEB1(("makeAbstract: no occurrences\n"));
-	return vector<string>();
+	return ABSRES_ERROR;
     }
 
     // Walk all document's terms position lists and populate slots
@@ -586,6 +604,7 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
 	    if (has_prefix(*term))
 		continue;
 	    if (cutoff-- < 0) {
+		ret = ABSRES_TRUNC;
 		LOGDEB0(("makeAbstract: max term count cutoff\n"));
 		break;
 	    }
@@ -594,6 +613,7 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
 	    for (pos = xrdb.positionlist_begin(docid, *term); 
 		 pos != xrdb.positionlist_end(docid, *term); pos++) {
 		if (cutoff-- < 0) {
+		    ret = ABSRES_TRUNC;
 		    LOGDEB0(("makeAbstract: max term count cutoff\n"));
 		    break;
 		}
@@ -604,8 +624,8 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
 		    // at the same position, we want to keep only the
 		    // first one (ie: dockes and dockes@wanadoo.fr)
 		    if (vit->second.empty()) {
-			LOGABS(("makeAbstract: populating: [%s] at %d\n", 
-				(*term).c_str(), *pos));
+			LOGDEB2(("makeAbstract: populating: [%s] at %d\n", 
+				 (*term).c_str(), *pos));
 			sparseDoc[*pos] = *term;
 		    }
 		}
@@ -637,19 +657,19 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
     LOGABS(("makeAbstract:%d: extracting. Got %u pages\n", chron.millis(),
 	    vpbreaks.size()));
     // Finally build the abstract by walking the map (in order of position)
-    vector<string> vabs;
+    vabs.clear();
     string chunk;
     bool incjk = false;
+    int page = 0;
     for (map<unsigned int, string>::const_iterator it = sparseDoc.begin();
 	 it != sparseDoc.end(); it++) {
 	LOGDEB2(("Abtract:output %u -> [%s]\n", it->first,it->second.c_str()));
 	if (!occupiedmarker.compare(it->second))
 	    continue;
 	if (chunk.empty() && !vpbreaks.empty()) {
-	    int pnum =  getPageNumberForPosition(vpbreaks, it->first);
-	    ostringstream ss;
-	    ss << pnum;
-	    chunk += string(" [p ") + ss.str() + "] ";
+	    page =  getPageNumberForPosition(vpbreaks, it->first);
+	    if (page < 0) 
+		page = 0;
 	}
 	Utf8Iter uit(it->second);
 	bool newcjk = false;
@@ -659,7 +679,7 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
 	    chunk += " ";
 	incjk = newcjk;
 	if (it->second == cstr_ellipsis) {
-	    vabs.push_back(chunk);
+	    vabs.push_back(pair<int,string>(page, chunk));
 	    chunk.clear();
 	} else {
 	    if (it->second.compare(end_of_field_term) && 
@@ -668,10 +688,10 @@ vector<string> Db::Native::makeAbstract(Xapian::docid docid, Query *query)
 	}
     }
     if (!chunk.empty())
-	vabs.push_back(chunk);
+	vabs.push_back(pair<int, string>(page, chunk));
 
     LOGDEB2(("makeAbtract: done in %d mS\n", chron.millis()));
-    return vabs;
+    return ret;
 }
 
 /* Rcl::Db methods ///////////////////////////////// */
@@ -1516,6 +1536,8 @@ bool Db::addOrUpdate(const string &udi, const string &parent_udi,
     if (!tpidx.m_pageincrvec.empty()) {
 	ostringstream multibreaks;
 	for (unsigned int i = 0; i < tpidx.m_pageincrvec.size(); i++) {
+	    if (i != 0)
+		multibreaks << ",";
 	    multibreaks << tpidx.m_pageincrvec[i].first << "," << 
 		tpidx.m_pageincrvec[i].second;
 	}
@@ -2168,31 +2190,59 @@ bool Db::stemDiffers(const string& lang, const string& word,
     return true;
 }
 
+abstract_result Db::makeDocAbstract(Doc &doc, Query *query, 
+				    vector<pair<int, string> >& abstract, 
+				    int maxoccs, int ctxwords)
+{
+    LOGDEB(("makeDocAbstract: maxoccs %d ctxwords %d\n", maxoccs, ctxwords));
+    if (!m_ndb || !m_ndb->m_isopen) {
+	LOGERR(("Db::makeDocAbstract: no db\n"));
+	return ABSRES_ERROR;
+    }
+    abstract_result ret = ABSRES_ERROR;
+    XAPTRY(ret = m_ndb->makeAbstract(doc.xdocid, query, abstract, 
+				     maxoccs, ctxwords),
+           m_ndb->xrdb, m_reason);
+    if (!m_reason.empty())
+	return ABSRES_ERROR;
+    return ret;
+}
+
 bool Db::makeDocAbstract(Doc &doc, Query *query, vector<string>& abstract)
 {
-    LOGDEB1(("Db::makeDocAbstract: exti %d\n", exti));
     if (!m_ndb || !m_ndb->m_isopen) {
 	LOGERR(("Db::makeDocAbstract: no db\n"));
 	return false;
     }
-    XAPTRY(abstract = m_ndb->makeAbstract(doc.xdocid, query),
-           m_ndb->xrdb, m_reason);
-    return m_reason.empty() ? true : false;
+    vector<pair<int, string> > vpabs;
+    if (!makeDocAbstract(doc, query, vpabs)) 
+	return false;
+    for (vector<pair<int, string> >::const_iterator it = vpabs.begin();
+	 it != vpabs.end(); it++) {
+	string chunk;
+	if (it->first > 0) {
+	    ostringstream ss;
+	    ss << it->first;
+	    chunk += string(" [p ") + ss.str() + "] ";
+	}
+	chunk += it->second;
+	abstract.push_back(chunk);
+    }
+    return true;
 }
 
 bool Db::makeDocAbstract(Doc &doc, Query *query, string& abstract)
 {
-    LOGDEB1(("Db::makeDocAbstract: exti %d\n", exti));
     if (!m_ndb || !m_ndb->m_isopen) {
 	LOGERR(("Db::makeDocAbstract: no db\n"));
 	return false;
     }
-    vector<string> vab;
-    XAPTRY(vab = m_ndb->makeAbstract(doc.xdocid, query),
-           m_ndb->xrdb, m_reason);
-    for (vector<string>::const_iterator it = vab.begin(); 
-	 it != vab.end(); it++) {
-	abstract.append(*it);
+    vector<pair<int, string> > vpabs;
+    if (!makeDocAbstract(doc, query, vpabs))
+	return false;
+    for (vector<pair<int, string> >::const_iterator it = vpabs.begin(); 
+	 it != vpabs.end(); it++) {
+	abstract.append(it->second);
 	abstract.append(cstr_ellipsis);
     }
     return m_reason.empty() ? true : false;
