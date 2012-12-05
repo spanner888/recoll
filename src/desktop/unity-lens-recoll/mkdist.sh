@@ -10,7 +10,7 @@ usage() {
 }
 
 VCCMD=hg
-TAR=/usr/bin/tar
+TAR=/bin/tar
 
 VRECOLL=`cat ../../VERSION`
 VLENS=`hg tip | egrep ^changeset: | awk '{print $2}' | awk -F: '{print $1}'`
