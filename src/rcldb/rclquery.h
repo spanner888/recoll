@@ -108,6 +108,12 @@ class Query {
     /** Retrieve detected page breaks positions */
     int getFirstMatchPage(Doc &doc, std::string& term);
 
+    /** Retrieve a reference to the searchData we are using */
+    RefCntr<SearchData> getSD() 
+    {
+	return m_sd;
+    }
+
     /** Expand query to look for documents like the one passed in */
     std::vector<std::string> expand(const Doc &doc);
 
