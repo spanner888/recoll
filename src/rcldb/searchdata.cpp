@@ -1297,12 +1297,12 @@ bool StringToXapianQ::processUserString(const string &iq,
 		int lmods = mods;
 		if (splitter.nostemexps.front())
 		    lmods |= SearchDataClause::SDCM_NOSTEMMING;
-		m_hld.ugroups.push_back(vector<string>(1, *it));
+		m_hld.ugroups.push_back(splitter.terms);
 		processSimpleSpan(ermsg,splitter.terms.front(),lmods, pqueries);
 	    }
 		break;
 	    default:
-		m_hld.ugroups.push_back(vector<string>(1, *it));
+		m_hld.ugroups.push_back(splitter.terms);
 		processPhraseOrNear(ermsg, &splitter, mods, pqueries,
 				    useNear, slack);
 	    }
