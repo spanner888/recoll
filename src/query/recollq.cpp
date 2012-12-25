@@ -28,6 +28,7 @@
 #include <iostream>
 #include <list>
 #include <string>
+#include <algorithm>
 using namespace std;
 
 #include "rcldb.h"
@@ -44,38 +45,6 @@ using namespace std;
 #include "textsplit.h"
 #include "smallut.h"
 #include "base64.h"
-
-bool dump_contents(RclConfig *rclconfig, TempDir& tmpdir, Rcl::Doc& idoc)
-{
-    FileInterner interner(idoc, rclconfig, tmpdir,
-                          FileInterner::FIF_forPreview);
-    Rcl::Doc fdoc;
-    string ipath = idoc.ipath;
-    if (interner.internfile(fdoc, ipath)) {
-	cout << fdoc.text << endl;
-    } else {
-	cout << "Cant turn to text:" << idoc.url << " | " << idoc.ipath << endl;
-    }
-    return true;
-}
-
-void output_fields(const vector<string>fields, Rcl::Doc& doc,
-		   Rcl::Query& query, Rcl::Db& rcldb)
-{
-    for (vector<string>::const_iterator it = fields.begin();
-	 it != fields.end(); it++) {
-	string out;
-	if (!it->compare("abstract")) {
-	    string abstract;
-	    rcldb.makeDocAbstract(doc, &query, abstract);
-	    base64_encode(abstract, out);
-	} else {
-	    base64_encode(doc.meta[*it], out);
-	}
-	cout << out << " ";
-    }
-    cout << endl;
-}
 
 static char *thisprog;
 static char usage [] =
@@ -110,6 +79,8 @@ static char usage [] =
 "       separated by one space character. This is the recommended format \n"
 "       for use by other programs. Use a normal query with option -m to \n"
 "       see the field names.\n"
+"      -C: clear: output the fields in clear, tab-separated, after replacing any tabs\n"
+"         with blanks in the original data\n"
 ;
 static void
 Usage(void)
@@ -144,6 +115,49 @@ static int     op_flags;
 #define OPT_t     0x20000
 #define OPT_e     0x40000
 #define OPT_F     0x80000
+#define OPT_C     0x100000
+
+
+bool dump_contents(RclConfig *rclconfig, TempDir& tmpdir, Rcl::Doc& idoc)
+{
+    FileInterner interner(idoc, rclconfig, tmpdir,
+                          FileInterner::FIF_forPreview);
+    Rcl::Doc fdoc;
+    string ipath = idoc.ipath;
+    if (interner.internfile(fdoc, ipath)) {
+	cout << fdoc.text << endl;
+    } else {
+	cout << "Cant turn to text:" << idoc.url << " | " << idoc.ipath << endl;
+    }
+    return true;
+}
+
+void output_fields(const vector<string>fields, Rcl::Doc& doc,
+		   Rcl::Query& query, Rcl::Db& rcldb)
+{
+    for (vector<string>::const_iterator it = fields.begin();
+	 it != fields.end(); it++) {
+	string out;
+	if (!it->compare("abstract")) {
+	    rcldb.makeDocAbstract(doc, &query, out);
+	} else if (!it->compare("xdocid")) {
+	    char sxdocid[30];
+	    snprintf(sxdocid, 29, "%lld", (long long)doc.xdocid);
+	    out = sxdocid;
+	} else {
+	    out = doc.meta[*it];
+	}
+	if (op_flags&OPT_C) {
+	    replace(out.begin(), out.end(), '\t', ' ');
+	    cout << out << "\t";
+	} else {
+	    string out1;
+	    base64_encode(out, out1);
+	    cout << out1 << " ";
+	}
+    }
+    cout << endl;
+}
 
 int recollq(RclConfig **cfp, int argc, char **argv)
 {
@@ -172,6 +186,7 @@ int recollq(RclConfig **cfp, int argc, char **argv)
 	    case 'c':	op_flags |= OPT_c; if (argc < 2)  Usage();
 		a_config = *(++argv);
 		argc--; goto b1;
+            case 'C':   op_flags |= OPT_C; break;
             case 'd':   op_flags |= OPT_d; break;
             case 'D':   op_flags |= OPT_D; break;
             case 'e':   op_flags |= OPT_e; break;
