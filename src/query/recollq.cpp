@@ -141,7 +141,7 @@ void output_fields(const vector<string>fields, Rcl::Doc& doc,
 	 it != fields.end(); it++) {
 	string out;
 	if (!it->compare("abstract")) {
-	    rcldb.makeDocAbstract(doc, &query, out);
+	    query.makeDocAbstract(doc, out);
 	} else if (!it->compare("xdocid")) {
 	    char sxdocid[30];
 	    snprintf(sxdocid, 29, "%lld", (long long)doc.xdocid);
