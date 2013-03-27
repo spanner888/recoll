@@ -188,13 +188,16 @@ bool SearchData::expandFileTypes(RclConfig *cfg, vector<string>& tps)
 	    cfg->getMimeCatTypes(*it, tps);
 	    exptps.insert(exptps.end(), tps.begin(), tps.end());
 	} else {
+	    bool matched = false;
 	    for (vector<string>::const_iterator ait = alltypes.begin();
 		 ait != alltypes.end(); ait++) {
-		if (fnmatch(it->c_str(), ait->c_str(), FNM_CASEFOLD) 
-		    != FNM_NOMATCH) {
+		if (fnmatch(it->c_str(), ait->c_str(), FNM_CASEFOLD) == 0) {
 		    exptps.push_back(*ait);
+		    matched = true;
 		}
 	    }
+	    if (!matched)
+		exptps.push_back(it->c_str());
 	}
     }
     tps = exptps;
@@ -251,7 +254,7 @@ bool SearchData::clausesToQuery(Rcl::Db &db, SClType tp,
     if (xq.empty())
 	xq = Xapian::Query::MatchAll;
 
-   *((Xapian::Query *)d) = xq;
+    *((Xapian::Query *)d) = xq;
     return true;
 }
 
@@ -374,6 +377,7 @@ bool SearchData::toNativeQuery(Rcl::Db &db, void *d, int maxexp, int maxcl)
 		m_reason.c_str()));
 	return false;
     }
+    LOGDEB(("after clausesToQuery. Query: %s\n", xq.get_description().c_str()));
 
     if (m_haveDates) {
         // If one of the extremities is unset, compute db extremas
@@ -460,6 +464,7 @@ bool SearchData::toNativeQuery(Rcl::Db &db, void *d, int maxexp, int maxcl)
 	}
 	xq = xq.empty() ? tq : Xapian::Query(Xapian::Query::OP_FILTER, xq, tq);
     }
+    LOGDEB(("after filetype filter. Query: %s\n", xq.get_description().c_str()));
 
     // Add the neg file type filtering clause if any
     if (!m_nfiletypes.empty()) {
@@ -1066,6 +1071,7 @@ void StringToXapianQ::processSimpleSpan(string& ermsg, const string& span,
     }
 
     // Push either term or OR of stem-expanded set
+    LOGDEB(("After expandterm, exp.size is %u\n", exp.size()));
     Xapian::Query xq(Xapian::Query::OP_OR, exp.begin(), exp.end());
     m_curcl += exp.size();
 
@@ -1325,6 +1331,7 @@ bool StringToXapianQ::processUserString(const string &iq,
 	LOGERR(("stringToXapianQueries: %s\n", ermsg.c_str()));
 	return false;
     }
+    LOGDEB(("End of processUserString, pqueries size: %u\n", pqueries.size()));
     return true;
 }
 
