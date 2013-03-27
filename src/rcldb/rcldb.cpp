@@ -1654,8 +1654,7 @@ bool Db::termMatch(MatchType typ, const string &lang,
                     else
                         term = *it;
                     if (typ == ET_WILD) {
-                        if (fnmatch(droot.c_str(), term.c_str(), 0) == 
-                            FNM_NOMATCH)
+                        if (fnmatch(droot.c_str(), term.c_str(), 0))
                             continue;
                     } else {
                         if (regexec(&reg, term.c_str(), 0, 0, 0))
