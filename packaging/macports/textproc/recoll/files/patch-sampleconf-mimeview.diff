@@ -1,0 +1,28 @@
+--- sampleconf/mimeview	2012-10-18 10:47:45.000000000 +0200
++++ sampleconf/mimeview.mac	2012-10-19 18:46:14.000000000 +0200
+@@ -2,7 +2,8 @@
+ 
+ ## ##########################################
+ # External viewers, launched by the recoll GUI when you click on a result
+-# 'edit' link
++# 'Open' link - MAC version
++# On the MAC, we use "open" for everything...
+ 
+ # Mime types which we should not uncompress if they are found gzipped or
+ # bzipped because the native viewer knows how to handle. These would be
+@@ -16,12 +17,12 @@
+ #    search string
+ #  - For pages of CHM and EPUB documents where we can choose to open the 
+ #    parent document instead of a temporary html file.
+-xallexcepts = application/pdf application/postscript application/x-dvi \
+-            text/html|gnuinfo text/html|chm text/html|epub
++#xallexcepts = application/pdf application/postscript application/x-dvi \
++#            text/html|gnuinfo text/html|chm text/html|epub
+ 
+ [view]
+ # Pseudo entry used if the 'use desktop' preference is set in the GUI
+-application/x-all = xdg-open %f
++application/x-all = open %f
+ 
+ application/epub+zip = ebook-viewer %f
+ # If you want to open the parent epub document for epub parts instead of

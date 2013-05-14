@@ -1,0 +1,12 @@
+diff -r d2ac364b662c src/configure
+--- configure	Fri Oct 19 16:28:23 2012 +0200
++++ configure	Fri Oct 19 18:49:28 2012 +0200
+@@ -4472,7 +4472,7 @@
+ LIBICONV=""
+ S_LDFLAGS=$LDFLAGS
+ S_CPPFLAGS=$CPPFLAGS
+-for dir in ${libdir} /opt/local/lib /usr/local/lib ;do
++for dir in ${libdir} ;do
+   CPPFLAGS="$S_CPPFLAGS -I$dir/../include"
+ 
+   LDFLAGS="$S_LDFLAGS -L$dir"
