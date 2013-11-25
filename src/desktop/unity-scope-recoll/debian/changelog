@@ -1,0 +1,4 @@
+unity-scope-recoll (1.19.10.3543-1~ppaPPAVERS~SERIES1) SERIES; urgency=low
+
+  * Initial port of the recoll lens to the new Dash
+ -- Jean-Francois Dockes <jf@dockes.org>  Wed, 23 Nov 2013 18:00:00 +0200
