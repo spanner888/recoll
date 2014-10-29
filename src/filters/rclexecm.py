@@ -37,7 +37,7 @@ class RclExecM:
 
         txt = txt.replace("<", "&lt;")
         txt = txt.replace(">", "&gt;")
-        txt = txt.replace('"', "&dquot;")
+        txt = txt.replace('"', "&quot;")
         return txt
 
     # Our worker sometimes knows the mime types of the data it sends
