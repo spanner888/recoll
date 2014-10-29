@@ -30,6 +30,8 @@ class RclExecM:
         if doexit:
             sys.exit(exitvalue)
 
+    # Note: tried replacing this with a multiple replacer according to
+    #  http://stackoverflow.com/a/15221068, which was **10 times** slower
     def htmlescape(self, txt):
         # This must stay first (it somehow had managed to skip after
         # the next line, with rather interesting results)
