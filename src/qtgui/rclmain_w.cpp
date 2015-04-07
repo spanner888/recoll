@@ -289,8 +289,6 @@ void RclMain::init()
     connect(m_filtBGRP, SIGNAL(buttonClicked(int)),this, SLOT(catgFilter(int)));
     connect(m_filtCMB, SIGNAL(activated(int)), this, SLOT(catgFilter(int)));
 
-    sSearch->queryText->installEventFilter(this);
-
     restable = new ResTable(this);
     verticalLayout->insertWidget(2, restable);
     actionShowResultsAsTable->setChecked(prefs.showResultsAsTable);
@@ -701,6 +699,8 @@ void RclMain::fileExit()
     prefs.ssearchTyp = sSearch->searchTypCMB->currentIndex();
     if (asearchform)
 	delete asearchform;
+
+    rwSettings(true);
 
     // Let the exit handler clean up the rest (internal recoll stuff).
     exit(0);
@@ -2338,19 +2338,10 @@ void RclMain::toggleFullScreen()
         showFullScreen();
 }
 
-bool RclMain::eventFilter(QObject *, QEvent *event)
+void RclMain::showEvent(QShowEvent *ev)
 {
-    if (event->type() == QEvent::KeyPress)  {
-        LOGDEB2(("RclMain::eventFilter: keypress\n"));
-	// We used to map shift-home to reslist "goto first page"
-	// here but we now use shift-pageUp because shift-home is
-	// useful to select all inside the search entry
-    } else if (event->type() == QEvent::Show)  {
-	LOGDEB2(("RclMain::eventFilter: Show\n"));
-	// move the focus to the search entry on show
-	sSearch->queryText->setFocus();
-    }
-    return false;
+    sSearch->queryText->setFocus();
+    QMainWindow::showEvent(ev);
 }
 
 void RclMain::applyStyleSheet()
