@@ -1590,6 +1590,10 @@ Please check the desktop file</source>
         <source>Query details</source>
         <translation>查询语句细节</translation>
     </message>
+    <message>
+        <source>Snippets</source>
+        <translation type="unfinished">片断</translation>
+    </message>
 </context>
 <context>
     <name>ResTable</name>

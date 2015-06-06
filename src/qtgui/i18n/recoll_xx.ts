@@ -1348,6 +1348,10 @@ Please check the desktop file</source>
         <source>Query details</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Snippets</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ResTable</name>
