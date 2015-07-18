@@ -31,6 +31,7 @@ AC_SYS_LARGEFILE
 
 # OpenBSD needs sys/param.h for mount.h to compile
 AC_CHECK_HEADERS([sys/param.h])
+AC_CHECK_FUNCS([setrlimit])
 
 # Check for where to find unordered_map etc.
 AC_LANG_PUSH([C++])

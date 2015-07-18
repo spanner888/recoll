@@ -24,6 +24,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
@@ -270,6 +272,39 @@ inline void ExecCmd::dochild(const string &cmd, const char **argv,
     pthread_sigmask(SIG_UNBLOCK, &sset, 0);
     sigprocmask(SIG_UNBLOCK, &sset, 0);
 
+#ifdef HAVE_SETRLIMIT
+#if defined RLIMIT_AS || defined RLIMIT_VMEM || defined RLIMIT_DATA
+    if (m_rlimit_as_mbytes > 2000 && sizeof(rlim_t) < 8) {
+	// Impossible limit, don't use it
+	m_rlimit_as_mbytes = 0;
+    }
+    if (m_rlimit_as_mbytes > 0) {
+	struct rlimit ram_limit = {
+	    static_cast<rlim_t>(m_rlimit_as_mbytes * 1024 * 1024),
+	    RLIM_INFINITY
+	};
+	int resource;
+
+	// RLIMIT_AS and RLIMIT_VMEM are usually synonyms when VMEM is
+	// defined. RLIMIT_AS is Posix. Both don't really do what we
+	// want, because they count e.g. shared lib mappings, which we
+	// don't really care about.
+	// RLIMIT_DATA only limits the data segment. Modern mallocs
+	// use mmap and will not be bound. (Otoh if we only have this,
+	// we're probably not modern).
+	// So we're unsatisfied either way.
+#ifdef RLIMIT_AS
+	resource = RLIMIT_AS;
+#elif defined RLIMIT_VMEM
+	resource = RLIMIT_VMEM;
+#else
+	resource = RLIMIT_DATA;
+#endif
+	setrlimit(resource, &ram_limit);
+    }
+#endif
+#endif // have_setrlimit
+
     if (has_input) {
 	close(m_pipein[1]);
 	if (m_pipein[0] != 0) {
@@ -315,6 +350,11 @@ inline void ExecCmd::dochild(const string &cmd, const char **argv,
     LOGERR(("ExecCmd::DOCHILD: execve(%s) failed. errno %d\n", cmd.c_str(),
 	    errno));
     _exit(127);
+}
+
+void ExecCmd::setrlimit_as(int mbytes)
+{
+    m_rlimit_as_mbytes = mbytes;
 }
 
 int ExecCmd::startExec(const string &cmd, const vector<string>& args,
