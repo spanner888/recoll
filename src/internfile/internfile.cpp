@@ -28,9 +28,8 @@
 #include <string>
 #include <iostream>
 #include <map>
-#ifndef NO_NAMESPACES
+
 using namespace std;
-#endif /* NO_NAMESPACES */
 
 #include "cstr.h"
 #include "internfile.h"
@@ -558,6 +557,10 @@ bool FileInterner::dijontorcl(Rcl::Doc& doc)
 // doc with an ipath, not the last one which is usually text/plain We
 // also set the author and modification time from the last doc which
 // has them.
+// 
+// The stack can contain objects with an ipath element (corresponding
+// to actual embedded documents), and, at the top, elements without an
+// ipath element, corresponding to format translations of the last doc.
 //
 // The docsize is fetched from the first element without an ipath
 // (first non container). If the last element directly returns
@@ -587,7 +590,8 @@ void FileInterner::collectIpathAndMT(Rcl::Doc& doc) const
 	const map<string, string>& docdata = (*hit)->get_meta_data();
 	if (getKeyValue(docdata, cstr_dj_keyipath, ipathel)) {
 	    if (!ipathel.empty()) {
-		// We have a non-empty ipath
+		// Non-empty ipath. This stack element is for an
+		// actual embedded document, not a format translation.
 		hasipath = true;
 		getKeyValue(docdata, cstr_dj_keymt, doc.mimetype);
 		getKeyValue(docdata, cstr_dj_keyfn, doc.meta[Rcl::Doc::keyfn]);
@@ -601,8 +605,18 @@ void FileInterner::collectIpathAndMT(Rcl::Doc& doc) const
 		getKeyValue(docdata, cstr_dj_keydocsize, doc.fbytes);
 	    doc.ipath += cstr_isep;
 	}
-	getKeyValue(docdata, cstr_dj_keyauthor, doc.meta[Rcl::Doc::keyau]);
-	getKeyValue(docdata, cstr_dj_keymd, doc.dmtime);
+        // We set the author field from the innermost doc which has
+        // one: allows finding, e.g. an image attachment having no
+        // metadata by a search on the sender name. Only do this for
+        // actually embedded documents (avoid replacing values from
+        // metacmds for the topmost one). For a topmost doc, author
+        // will be merged by dijontorcl() later on. About same for
+        // dmtime, but an external value will be replaced, not
+        // augmented if dijontorcl() finds an internal value.
+        if (hasipath) {
+            getKeyValue(docdata, cstr_dj_keyauthor, doc.meta[Rcl::Doc::keyau]);
+            getKeyValue(docdata, cstr_dj_keymd, doc.dmtime);
+        }
     }
 
     // Trim empty tail elements in ipath.
@@ -886,13 +900,33 @@ FileInterner::Status FileInterner::internfile(Rcl::Doc& doc, const string& ipath
 	return FIAgain;
 }
 
+<<<<<<< local
 // Temporary while we fix backend things
 static string urltolocalpath(string url)
+=======
+bool FileInterner::tempFileForMT(TempFile& otemp, RclConfig* cnf, 
+                                 const string& mimetype)
+>>>>>>> other
 {
+<<<<<<< local
     return url.substr(7, string::npos);
+=======
+    TempFile temp(new TempFileInternal(
+                      cnf->getSuffixFromMimeType(mimetype)));
+    if (!temp->ok()) {
+        LOGERR(("FileInterner::interntofile: can't create temp file\n"));
+        return false;
+    }
+    otemp = temp;
+    return true;
+>>>>>>> other
 }
 
+<<<<<<< local
 // Extract subdoc out of multidoc into temporary file. 
+=======
+// Extract document (typically subdoc of multidoc) into temporary file. 
+>>>>>>> other
 // We do the usual internfile stuff: create a temporary directory,
 // then create an interner and call internfile. The target mtype is set to
 // the input mtype, so that no data conversion is performed.
