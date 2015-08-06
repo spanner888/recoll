@@ -900,33 +900,7 @@ FileInterner::Status FileInterner::internfile(Rcl::Doc& doc, const string& ipath
 	return FIAgain;
 }
 
-<<<<<<< local
-// Temporary while we fix backend things
-static string urltolocalpath(string url)
-=======
-bool FileInterner::tempFileForMT(TempFile& otemp, RclConfig* cnf, 
-                                 const string& mimetype)
->>>>>>> other
-{
-<<<<<<< local
-    return url.substr(7, string::npos);
-=======
-    TempFile temp(new TempFileInternal(
-                      cnf->getSuffixFromMimeType(mimetype)));
-    if (!temp->ok()) {
-        LOGERR(("FileInterner::interntofile: can't create temp file\n"));
-        return false;
-    }
-    otemp = temp;
-    return true;
->>>>>>> other
-}
-
-<<<<<<< local
-// Extract subdoc out of multidoc into temporary file. 
-=======
 // Extract document (typically subdoc of multidoc) into temporary file. 
->>>>>>> other
 // We do the usual internfile stuff: create a temporary directory,
 // then create an interner and call internfile. The target mtype is set to
 // the input mtype, so that no data conversion is performed.
