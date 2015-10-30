@@ -1,0 +1,200 @@
+#!/bin/sh
+
+fatal()
+{
+    echo $*
+    exit 1
+}
+Usage()
+{
+    fatal mkinstdir.sh targetdir
+}
+
+test $# -eq 1 || Usage
+
+DESTDIR=$1
+
+test -d $DESTDIR || mkdir $DESTDIR || fatal cant create $DESTDIR
+
+# Script to make a prototype recoll install directory from locally compiled
+# software. *** Needs msys or cygwin ***
+
+################################
+# Local values (to be adjusted)
+
+# Recoll src tree
+RCL=c:/recoll/src/
+
+ReleaseBuild=y
+
+# Note: unrtf not under recolldeps because it's a clone from the
+# original mercurial repository 
+UNRTF=c:/unrtf
+# antiword is under recolldeps: it's not really maintained any more
+# and has no public repository
+ANTIWORD=c:/recolldeps/antiword
+PYXSLT=C:/recolldeps/pyxslt
+PYEXIV2=C:/recolldeps/pyexiv2
+LIBXAPIAN=c:/temp/xapian-core-1.2.21/.libs/libxapian-22.dll
+MUTAGEN=C:/temp/mutagen-1.31/
+EPUB=C:/temp/epub-0.5.2
+ZLIB=c:/temp/zlib-1.2.8
+POPPLER=c:/temp/poppler-0.36/
+
+# Where to copy the Qt Dlls from:
+QTBIN=C:/Qt/5.5/mingw492_32/bin
+
+# Qt arch
+QTA=Desktop_Qt_5_5_0_MinGW_32bit
+
+RCLW=$RCL/windows/
+
+if test X$ReleaseBuild = X'y'; then
+    qtsdir=release
+else
+    qtsdir=debug
+fi
+LIBR=$RCLW/build-librecoll-${QTA}-${qtsdir}/${qtsdir}/librecoll.dll
+GUIBIN=$RCL/build-recoll-win-${QTA}-${qtsdir}/${qtsdir}/recoll.exe
+RCLIDX=$RCLW/build-recollindex-${QTA}-${qtsdir}/${qtsdir}/recollindex.exe
+RCLQ=$RCLW/build-recollq-${QTA}-${qtsdir}/${qtsdir}/recollq.exe
+RCLS=$RCLW/build-rclstartw-${QTA}-${qtsdir}/${qtsdir}/rclstartw.exe
+
+
+# Needed for a VS build (which we did not ever complete because of
+# missing Qt VS2015 support).
+#CONFIGURATION=Release
+#PLATFORM=Win32
+
+################
+# Script:
+
+FILTERS=$DESTDIR/Share/filters
+
+# checkcopy. 
+chkcp()
+{
+    cp $@ || fatal cp $@ failed
+}
+
+# Note: can't build static recoll as there is no static qtwebkit (ref: 5.5.0)
+copyqt()
+{
+    cd $DESTDIR
+    $QTBIN/windeployqt recoll.exe
+    chkcp $QTBIN/libwinpthread-1.dll $DESTDIR
+}
+
+copyxapian()
+{
+    chkcp $LIBXAPIAN $DESTDIR
+}
+
+copyzlib()
+{
+    chkcp $ZLIB/zlib1.dll $DESTDIR
+}
+
+copyrecoll()
+{
+#    bindir=$RCL/windows/$PLATFORM/$CONFIGURATION/
+#    chkcp  $bindir/recollindex.exe         $DESTDIR
+#    chkcp  $bindir/recollq.exe             $DESTDIR
+#    chkcp  $bindir/pthreadVC2.dll          $DESTDIR
+    chkcp $LIBR $DESTDIR 
+    chkcp $GUIBIN $DESTDIR
+    chkcp $RCLIDX $DESTDIR
+    chkcp $RCLQ $DESTDIR 
+    chkcp $RCLS $DESTDIR 
+
+    chkcp $RCL/sampleconf/fields        $DESTDIR/Share/examples
+    chkcp $RCL/sampleconf/fragbuts.xml  $DESTDIR/Share/examples
+    chkcp $RCL/windows/mimeconf         $DESTDIR/Share/examples
+    chkcp $RCL/sampleconf/mimemap       $DESTDIR/Share/examples
+    chkcp $RCL/windows/mimeview         $DESTDIR/Share/examples
+    chkcp $RCL/sampleconf/recoll.conf   $DESTDIR/Share/examples
+    chkcp $RCL/sampleconf/recoll.qss    $DESTDIR/Share/examples
+
+    chkcp $RCL/python/recoll/recoll/rclconfig.py $FILTERS
+    chkcp $RCL/filters/*       $FILTERS 
+    chkcp $RCL/qtgui/mtpics/*  $DESTDIR/Share/images
+    chkcp $RCL/qtgui/i18n/*.qm $DESTDIR/Share/translations
+}
+
+copyantiword()
+{
+    # MS VS
+    #bindir=$ANTIWORD/Win32-only/$PLATFORM/$CONFIGURATION
+    # MINGW
+    bindir=$ANTIWORD/
+
+    test -d $Filters/Resources || mkdir -p $FILTERS/Resources || exit 1
+    chkcp  $bindir/antiword.exe            $FILTERS
+    chkcp  $ANTIWORD/Resources/*           $FILTERS/Resources
+}
+
+copyunrtf()
+{
+#    bindir=$UNRTF/Windows/$PLATFORM/$CONFIGURATION
+     bindir=$UNRTF/Windows/
+
+    test -d $FILTERS/Share || mkdir -p $FILTERS/Share || exit 1
+    chkcp  $bindir/unrtf.exe               $FILTERS
+    chkcp  $UNRTF/outputs/*.conf           $FILTERS/Share
+    chkcp  $UNRTF/outputs/SYMBOL.charmap   $FILTERS/Share
+}
+
+copymutagen()
+{
+    cp -rp $MUTAGEN/build/lib/mutagen $FILTERS
+    # chkcp to check that mutagen is where we think it is
+    chkcp $MUTAGEN/build/lib/mutagen/mp3.py $FILTERS/mutagen
+}
+
+copyepub()
+{
+    cp -rp $EPUB/build/lib/epub $FILTERS
+    # chkcp to check that epub is where we think it is
+    chkcp $EPUB/build/lib/epub/opf.py $FILTERS/epub
+}
+
+copypyexiv2()
+{
+    cp -rp $PYEXIV2/pyexiv2 $FILTERS
+    chkcp $PYEXIV2/libexiv2python.pyd $FILTERS/
+}
+
+copyxslt()
+{
+    chkcp $PYXSLT/libxslt.py $FILTERS/
+    cp -rp $PYXSLT/* $FILTERS
+}
+
+copypoppler()
+{
+    test -d $FILTERS/poppler || mkdir $FILTERS/poppler || \
+        fatal cant create poppler dir
+    for f in pdftotext.exe libpoppler.dll freetype6.dll jpeg62.dll \
+             libpng16-16.dll zlib1.dll libtiff3.dll \
+             libgcc_s_dw2-1.dll libstdc++-6.dll; do
+        chkcp $POPPLER/bin/$f $FILTERS/poppler
+    done
+}
+
+for d in doc examples filters images translations; do
+    test -d $DESTDIR/Share/$d || mkdir -p $DESTDIR/Share/$d || \
+        fatal mkdir $d failed
+done
+
+# copyrecoll must stay before copyqt so that windeployqt can do its thing
+copyrecoll
+copyqt
+copyxapian
+copyzlib
+copypoppler
+copyantiword
+copyunrtf
+copyxslt
+copymutagen
+copyepub
+copypyexiv2
