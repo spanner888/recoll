@@ -722,7 +722,8 @@ Db::Db(const RclConfig *cfp)
     : m_ndb(0),  m_mode(Db::DbRO), m_curtxtsz(0), m_flushtxtsz(0),
       m_occtxtsz(0), m_occFirstCheck(1), m_idxMetaStoredLen(150),
       m_idxAbsTruncLen(250), m_synthAbsLen(250), m_synthAbsWordCtxLen(4), 
-      m_flushMb(-1), m_maxFsOccupPc(0)
+      m_flushMb(-1), m_maxFsOccupPc(0), m_docstore(false),
+      m_docstorestemlang("english"), m_docstorenobodyindex(false)
 {
     m_config = new RclConfig(*cfp);
     if (start_of_field_term.empty()) {
@@ -740,6 +741,9 @@ Db::Db(const RclConfig *cfp)
 	m_config->getConfParam("maxfsoccuppc", &m_maxFsOccupPc);
 	m_config->getConfParam("idxflushmb", &m_flushMb);
 	m_config->getConfParam("idxmetastoredlen", &m_idxMetaStoredLen);
+        m_config->getConfParam("docstore", &m_docstore);
+        m_config->getConfParam("docstorestemlang", m_docstorestemlang);
+        m_config->getConfParam("docstorenobodyindex", &m_docstorenobodyindex);
     }
 }
 
@@ -1136,11 +1140,20 @@ private:
 
 class TermProcIdx : public TermProc {
 public:
-    TermProcIdx() : TermProc(0), m_ts(0), m_lastpagepos(0), m_pageincr(0) {}
+    TermProcIdx(bool dstore, string dstorelang, bool dstorenbody)
+        : TermProc(0), m_ts(0), m_lastpagepos(0), m_pageincr(0),
+          m_docstore(dstore), m_docstoredostem(!dstorelang.empty()),
+          m_docstorenobodyindex(dstorenbody) {
+        if (m_docstoredostem) {
+            m_stemmer = Xapian::Stem(dstorelang);
+        }
+    }
     void setTSD(TextSplitDb *ts) {m_ts = ts;}
 
     bool takeword(const std::string &term, int pos, int, int)
     {
+        bool firstatpos = int(m_ts->curpos) != pos;
+        
 	// Compute absolute position (pos is relative to current segment),
 	// and remember relative.
 	m_ts->curpos = pos;
@@ -1153,7 +1166,7 @@ public:
 	try {
 	    // Index without prefix, using the field-specific weighting
 	    LOGDEB1(("Emitting term at %d : [%s]\n", pos, term.c_str()));
-            if (!m_ts->ft.pfxonly)
+            if (!m_ts->ft.pfxonly && !m_docstorenobodyindex)
                 m_ts->doc.add_posting(term, pos, m_ts->ft.wdfinc);
 
 #ifdef TESTING_XAPIAN_SPELL
@@ -1165,7 +1178,11 @@ public:
 	    if (!m_ts->ft.pfx.empty()) {
 		m_ts->doc.add_posting(m_ts->ft.pfx + term, pos, 
                                       m_ts->ft.wdfinc);
-	    }
+	    } else if (m_docstore && firstatpos) {
+                // No prefix: store the body term into the sequential document
+                m_doctxt += (m_docstoredostem ? m_stemmer(term) : term) + " ";
+                firstatpos = false;
+            }
 	    return true;
 	} XCATCHERROR(ermsg);
 	LOGERR(("Db: xapian add_posting error %s\n", ermsg.c_str()));
@@ -1218,6 +1235,11 @@ public:
     // breaks at the same pos
     int m_pageincr; 
     vector <pair<int, int> > m_pageincrvec;
+    bool m_docstore;
+    bool m_docstoredostem;
+    bool m_docstorenobodyindex;
+    Xapian::Stem m_stemmer;
+    string m_doctxt;
 };
 
 
@@ -1281,7 +1303,7 @@ bool Db::addOrUpdate(const string &udi, const string &parent_udi, Doc &doc)
     Xapian::Document &newdocument(*newdocument_ptr);
     
     // The term processing pipeline:
-    TermProcIdx tpidx;
+    TermProcIdx tpidx(m_docstore, m_docstorestemlang, m_docstorenobodyindex);
     TermProc *nxt = &tpidx;
     TermProcStop tpstop(nxt, m_stops);nxt = &tpstop;
     //TermProcCommongrams tpcommon(nxt, m_stops); nxt = &tpcommon;
@@ -1386,8 +1408,11 @@ bool Db::addOrUpdate(const string &udi, const string &parent_udi, Doc &doc)
 #ifdef TEXTSPLIT_STATS
 	splitter.resetStats();
 #endif
-	if (!splitter.text_to_words(doc.text))
+	if (!splitter.text_to_words(doc.text)) {
 	    LOGDEB(("Db::addOrUpdate: split failed for main text\n"));
+        } else if (m_docstore) {
+            newdocument.add_value(VALUE_DOCTXT, tpidx.m_doctxt);
+        }
 
 #ifdef TEXTSPLIT_STATS
 	// Reject bad data. unrecognized base64 text is characterized by
