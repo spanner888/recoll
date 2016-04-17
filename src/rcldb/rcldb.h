@@ -66,7 +66,8 @@ enum value_slot {
     VALUE_SIZE = 2,     // sortable_serialise(<file size in bytes>)
 
     // Recoll only:
-    VALUE_SIG = 10      // Doc sig as chosen by app (ex: mtime+size
+    VALUE_SIG = 10,     // Doc sig as chosen by app (ex: mtime+size
+    VALUE_DOCTXT = 11,
 };
 
 class SearchData;
@@ -518,6 +519,14 @@ private:
     // beginning, with the advantage that, for small index formats updates, 
     // between releases the index remains available while being recreated.
     static bool o_inPlaceReset;
+    // Store whole sequential doc text in Xapian Value
+    bool m_docstore;
+    // Stemming language for stored docs. Empty for no stemming
+    string m_docstorestemlang;
+    // Disable indexing of body text. Reduces storage if you just want
+    // a document store and no indexing/searching. The metadata is
+    // still indexed as it adds little volume and may be useful.
+    bool m_docstorenobodyindex;
     /******* End logical constnesss */
 
 #ifdef IDX_THREADS
