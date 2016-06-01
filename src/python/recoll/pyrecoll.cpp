@@ -608,26 +608,24 @@ Doc_getattro(recoll_DocObject *self, PyObject *nameobj)
 static int
 Doc_setattr(recoll_DocObject *self, char *name, PyObject *value)
 {
-    LOGDEB0(("Doc_setattr: doc %p\n", self->doc));
     if (self->doc == 0 || the_docs.find(self->doc) == the_docs.end()) {
         PyErr_SetString(PyExc_AttributeError, "doc??");
 	return -1;
     }
-
-#if PY_MAJOR_VERSION < 3
-    if (PyString_Check(value)) {
-	value = PyUnicode_FromObject(value);
-	if (value == 0) 
-	    return -1;
-    } 
-#endif
-
-    if (!PyUnicode_Check(value)) {
-	PyErr_SetString(PyExc_AttributeError, "value not str/unicode??");
+    if (!rclconfig || !rclconfig->ok()) {
+	PyErr_SetString(PyExc_EnvironmentError,
+                        "Configuration not initialized");
 	return -1;
     }
-    if (name == 0) {
-        PyErr_SetString(PyExc_AttributeError, "name??");
+
+    if (PyBytes_Check(value)) {
+	value = PyUnicode_FromEncodedObject(value, "UTF-8", "strict");
+	if (value == 0) 
+	    return -1;
+    }
+
+    if (!PyUnicode_Check(value)) {
+	PyErr_SetString(PyExc_AttributeError, "value not unicode??");
 	return -1;
     }
 
@@ -638,10 +636,11 @@ Doc_setattr(recoll_DocObject *self, char *name, PyObject *value)
 	return -1;
     }
     char* uvalue = PyBytes_AsString(putf8);
-    Py_DECREF(putf8);
     string key = rclconfig->fieldQCanon(string(name));
 
-    LOGDEB0(("Doc_setattr: [%s] (%s) -> [%s]\n", key.c_str(), name, uvalue));
+    LOGDEB0(("Doc_setattr: doc %p [%s] (%s) -> [%s]\n",
+             self->doc, key.c_str(), name, uvalue));
+
     // We set the value in the meta array in all cases. Good idea ? or do it
     // only for fields without a dedicated Doc:: entry?
     self->doc->meta[key] = uvalue;
@@ -695,6 +694,7 @@ Doc_setattr(recoll_DocObject *self, char *name, PyObject *value)
 	}
 	break;
     }
+    Py_DECREF(putf8);
     return 0;
 }
 
