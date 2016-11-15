@@ -1,0 +1,98 @@
+kio-recoll (1.22.2-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+
+  * No changes specific to the KIO, just use the 1.22 lib.
+
+ -- Jean-Francois Dockes <jf@dockes.org>  Tue, 15 Jun 2016 09:57:00 +0200
+
+kio-recoll (1.21.0-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+
+  * No changes specific to the KIO, just use the 1.21 lib.
+
+ -- Jean-Francois Dockes <jf@dockes.org>  Tue, 16 Jun 2015 18:21:00 +0200
+
+kio-recoll (1.20.6-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+
+  * Increase the default maximum number of entries displayed in a directory
+    window (can be adjusted with the kio_max_direntries configuration
+    variable). 
+  * Display entries incrementally instead of sending the whole
+    list at once.
+
+ -- Jean-Francois Dockes <jf@dockes.org>  Sat, 25 Apr 2015 14:47:00 +0200
+
+kio-recoll (1.20.1-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+  * Updated package to version 1.20.1
+ -- Jean-Francois Dockes <jf@dockes.org>  Fri, 19 Dec 2014 08:14:00 +0200
+
+kio-recoll (1.19.14p2-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+  * No changes, build for Ubuntu Utopic
+ -- Jean-Francois Dockes <jf@dockes.org>  Sat, 06 Dec 2014 08:44:00 +0200
+
+kio-recoll (1.19.12-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.19.12
+ -- Jean-Francois Dockes <jf@dockes.org>  Wed, 02 Apr 2014 15:50:00 +0200
+
+kio-recoll (1.19.10-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.19.10
+ -- Jean-Francois Dockes <jf@dockes.org>  Sat, 25 Nov 2013 18:00:00 +0100
+
+kio-recoll (1.19.2-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.19.2
+ -- Jean-Francois Dockes <jf@dockes.org>  Mon, 13 May 2013 12:09:00 +0100
+
+kio-recoll (1.18.2-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.18.2
+ -- Jean-Francois Dockes <jf@dockes.org>  Mon, 18 Apr 2013 18:05:00 +0100
+
+kio-recoll (1.18.1-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.18.1
+ -- Jean-Francois Dockes <jf@dockes.org>  Mon, 05 Nov 2012 13:25:00 +0100
+
+kio-recoll (1.17.0-0~ppaPPAVERS~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.17.0
+ -- Jean-Francois Dockes <jf@dockes.org>  Sun, 25 Mar 2012 18:05:00 +0200
+
+kio-recoll (1.16.2-0~ppa1~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.16.2
+ -- Jean-Francois Dockes <jf@dockes.org>  Mon, 07 Nov 2011 17:57:00 +0200
+
+kio-recoll (1.16.1-0~ppa1~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.16.1
+ -- Jean-Francois Dockes <jf@dockes.org>  Wed, 28 Sep 2011 15:07:00 +0200
+
+kio-recoll (1.16.0-0~ppa1~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.16.0
+ -- Jean-Francois Dockes <jf@dockes.org>  Wed, 07 Sep 2011 18:30:00 +0200
+
+kio-recoll (1.15.8-0~ppa1~SERIES1) SERIES; urgency=low
+  * Updated package to recoll version 1.15.8
+ -- Jean-Francois Dockes <jf@dockes.org>  Mon, 02 May 2011 17:27:00 +0200
+
+kio-recoll (1.15.5-0~ppa1~SERIES1) SERIES; urgency=low
+  * Update to recoll version 1.15.5
+ -- Jean-Francois Dockes <jf@dockes.org>  Fri, 04 Mar 2011 13:54:00 +0200
+
+kio-recoll (1.15.2-0~ppa1~SERIES1) SERIES; urgency=low
+  * Update to recoll version 1.15.2
+ -- Jean-Francois Dockes <jf@dockes.org>  Thu, 15 Feb 2011 08:43:00 +0200
+
+kio-recoll (1.15.0-0~ppa1~SERIES1) SERIES; urgency=low
+  * Update to recoll version 1.15.0
+ -- Jean-Francois Dockes <jf@dockes.org>  Wed, 02 Feb 2011 09:48:00 +0200
+
+kio-recoll (1.14.3-0~ppa1~SERIES1) SERIES; urgency=low
+  * Update to recoll version 1.14.3
+ -- Jean-Francois Dockes <jf@dockes.org>  Thu, 25 Nov 2010 10:25:00 +0200
+
+kio-recoll (1.14.2-0~ppa1~SERIES1) SERIES; urgency=low
+  * Update to recoll version 1.14.2
+ -- Jean-Francois Dockes <jf@dockes.org>  Sat, 25 Sep 2010 09:37:20 +0200
+
+kio-recoll (1.13.01-0~ppa4~SERIES1) SERIES; urgency=low
+  * Update to recoll version 1.13.01
+ -- Jean-Francois Dockes <jf@dockes.org>  Thu, 07 Jan 2010 11:26:00 +0100
+
+kio-recoll (1.12.3-0~ppa4~jaunty1) jaunty; urgency=low
+  * Initial release 
+ -- Jean-Francois Dockes <jf@dockes.org>  Tue, 24 Nov 2009 08:55:00 +0100
+
