@@ -17,7 +17,6 @@
 
 // Wrapper classes for the socket interface
 
-#ifndef TEST_NETCON
 #ifdef BUILDING_RECOLL
 #include "autoconfig.h"
 #else
@@ -68,9 +67,9 @@ using namespace std;
 static const int one = 1;
 static const int zero = 0;
 
-#define LOGSYSERR(who, call, spar)                                      \
-    LOGERR((who) << ": "  << (call) << "("  << (spar) << ") errno " <<  \
-           (errno) << " ("  << (strerror(errno)) << ")\n")
+#define LOGSYSERR(who, call, spar)                                \
+    LOGERR(who << ": "  << call << "("  << spar << ") errno " <<  \
+           errno << " ("  << strerror(errno) << ")\n")
 
 #ifndef MIN
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -187,7 +186,8 @@ int SelectLoop::doLoop()
                 it != m_polldata.end(); it++) {
             NetconP& pll = it->second;
             int fd  = it->first;
-            LOGDEB2("Selectloop: fd "  << (fd) << " flags 0x"  << (pll->m_wantedEvents) << "\n" );
+            LOGDEB2("Selectloop: fd " << fd << " flags 0x"  <<
+                    pll->m_wantedEvents << "\n");
             if (pll->m_wantedEvents & Netcon::NETCONPOLL_READ) {
                 FD_SET(fd, &rd);
                 nfds = MAX(nfds, fd + 1);
@@ -211,7 +211,7 @@ int SelectLoop::doLoop()
             return 0;
         }
 
-        LOGDEB2("Netcon::selectloop: selecting, nfds = "  << (nfds) << "\n" );
+        LOGDEB2("Netcon::selectloop: selecting, nfds = " << nfds << "\n");
 
         // Compute the next timeout according to what might need to be
         // done apart from waiting for data
@@ -363,6 +363,7 @@ int Netcon::settcpnodelay(int on)
     return 0;
 }
 
+
 // Set/reset non-blocking flag on fd
 int Netcon::set_nonblock(int onoff)
 {
@@ -380,23 +381,46 @@ int Netcon::set_nonblock(int onoff)
 /////////////////////////////////////////////////////////////////////
 // Data socket (NetconData) methods
 
+NetconData::NetconData(bool cancellable)
+    : m_buf(0), m_bufbase(0), m_bufbytes(0), m_bufsize(0), m_wkfds{-1,-1}
+{
+    if (cancellable) {
+        if (pipe(m_wkfds) < 0) {
+            LOGSYSERR("NetconData::NetconData", "pipe", "");
+            m_wkfds[0] = m_wkfds[1] = -1;
+        }
+        LOGDEB2("NetconData:: m_wkfds[0] " << m_wkfds[0] << " m_wkfds[1] " <<
+               m_wkfds[1] << endl);
+        for (int i = 0; i < 2; i++) {
+            int flags = fcntl(m_wkfds[i], F_GETFL, 0);
+            fcntl(m_wkfds[i], F_SETFL, flags | O_NONBLOCK);
+        }
+    }
+}
+
 NetconData::~NetconData()
 {
     freeZ(m_buf);
     m_bufbase = 0;
     m_bufbytes = m_bufsize = 0;
+    for (int i = 0; i < 2; i++) {
+        if (m_wkfds[i] >= 0) {
+            close(m_wkfds[i]);
+        }
+    }
 }
 
 int NetconData::send(const char *buf, int cnt, int expedited)
 {
-    LOGDEB2("NetconData::send: fd "  << (m_fd) << " cnt "  << (cnt) << " expe "  << (expedited) << "\n" );
+    LOGDEB2("NetconData::send: fd " << m_fd << " cnt " << cnt <<
+            " expe " << expedited << "\n");
     int flag = 0;
     if (m_fd < 0) {
         LOGERR("NetconData::send: connection not opened\n" );
         return -1;
     }
     if (expedited) {
-        LOGDEB2("NetconData::send: expedited data, count "  << (cnt) << " bytes\n" );
+        LOGDEB2("NetconData::send: expedited data, count " <<cnt << " bytes\n");
         flag = MSG_OOB;
     }
     int ret;
@@ -417,36 +441,25 @@ int NetconData::send(const char *buf, int cnt, int expedited)
     return ret;
 }
 
-// Test for data available
-int NetconData::readready()
+void NetconData::cancelReceive()
 {
-    LOGDEB2("NetconData::readready\n" );
-    if (m_fd < 0) {
-        LOGERR("NetconData::readready: connection not opened\n" );
-        return -1;
+    if (m_wkfds[1] >= 0) {
+        LOGDEB2("NetconData::cancelReceive: writing to " << m_wkfds[1] << endl);
+        ::write(m_wkfds[1], "!", 1);
     }
-    return select1(m_fd, 0);
-}
-
-// Test for writable
-int NetconData::writeready()
-{
-    LOGDEB2("NetconData::writeready\n" );
-    if (m_fd < 0) {
-        LOGERR("NetconData::writeready: connection not opened\n" );
-        return -1;
-    }
-    return select1(m_fd, 0, 1);
 }
 
 // Receive at most cnt bytes (maybe less)
 int NetconData::receive(char *buf, int cnt, int timeo)
 {
-    LOGDEB2("NetconData::receive: cnt "  << (cnt) << " timeo "  << (timeo) << " m_buf 0x"  << (m_buf) << " m_bufbytes "  << (m_bufbytes) << "\n" );
+    LOGDEB2("NetconData::receive: cnt " << cnt << " timeo "  << timeo <<
+            " m_buf 0x" << m_buf << " m_bufbytes " << m_bufbytes << "\n");
+
     if (m_fd < 0) {
         LOGERR("NetconData::receive: connection not opened\n" );
         return -1;
     }
+
     int fromibuf = 0;
     // Get whatever might have been left in the buffer by a previous
     // getline, except if we're called to fill the buffer of course
@@ -456,31 +469,54 @@ int NetconData::receive(char *buf, int cnt, int timeo)
         m_bufbytes -= fromibuf;
         m_bufbase += fromibuf;
         cnt -= fromibuf;
-        LOGDEB2("NetconData::receive: transferred "  << (fromibuf) << " from mbuf\n" );
+        LOGDEB2("NetconData::receive: got " << fromibuf << " from mbuf\n");
         if (cnt <= 0) {
             return fromibuf;
         }
     }
+
     if (timeo > 0) {
-        int ret = select1(m_fd, timeo);
-        if (ret == 0) {
-            LOGDEB2("NetconData::receive timed out\n" );
-            m_didtimo = 1;
-            return -1;
+        struct timeval tv;
+        tv.tv_sec = timeo;
+        tv.tv_usec =  0;
+        fd_set rd;
+        FD_ZERO(&rd);
+        FD_SET(m_fd, &rd);
+        bool cancellable = (m_wkfds[0] >= 0);
+        if (cancellable) {
+            LOGDEB2("NetconData::receive: cancel fd " << m_wkfds[0] << endl);
+            FD_SET(m_wkfds[0], &rd);
         }
+        int nfds = MAX(m_fd, m_wkfds[0]) + 1;
+
+        int ret = select(nfds, &rd, 0, 0, &tv);
+        LOGDEB2("NetconData::receive: select returned " << ret << endl);
+        
+        if (cancellable && FD_ISSET(m_wkfds[0], &rd)) {
+            char b[100];
+            read(m_wkfds[0], b, 100);
+            return Cancelled;
+        }
+
+        if (!FD_ISSET(m_fd, &rd)) {
+            m_didtimo = 1;
+            return TimeoutOrError;
+        }
+
         if (ret < 0) {
             LOGSYSERR("NetconData::receive", "select", "");
-            return -1;
+            m_didtimo = 0;
+            return TimeoutOrError;
         }
     }
+
     m_didtimo = 0;
     if ((cnt = read(m_fd, buf + fromibuf, cnt)) < 0) {
-        char fdcbuf[20];
-        sprintf(fdcbuf, "%d", m_fd);
-        LOGSYSERR("NetconData::receive", "read", fdcbuf);
+        LOGSYSERR("NetconData::receive", "read", m_fd);
         return -1;
     }
-    LOGDEB2("NetconData::receive: normal return, cnt "  << (cnt) << "\n" );
+    LOGDEB2("NetconData::receive: normal return, fromibuf " << fromibuf <<
+            " cnt "  << cnt << "\n");
     return fromibuf + cnt;
 }
 
@@ -488,13 +524,13 @@ int NetconData::receive(char *buf, int cnt, int timeo)
 int NetconData::doreceive(char *buf, int cnt, int timeo)
 {
     int got, cur;
-    LOGDEB2("Netcon::doreceive: cnt "  << (cnt) << ", timeo "  << (timeo) << "\n" );
+    LOGDEB2("Netcon::doreceive: cnt " << cnt << ", timeo " << timeo << "\n");
     cur = 0;
     while (cnt > cur) {
         got = receive(buf, cnt - cur, timeo);
         LOGDEB2("Netcon::doreceive: got "  << (got) << "\n" );
         if (got < 0) {
-            return -1;
+            return got;
         }
         if (got == 0) {
             return cur;
@@ -1018,319 +1054,3 @@ NetconServLis::checkperms(void *cl, int)
     return -1;
 }
 #endif /* NETCON_ACCESSCONTROL */
-
-
-#else /* !TEST_NETCON */
-/////////////////////////////////////////////////////////////////////////
-////////// TEST DRIVER
-////////////////////////////////////////////////////////////////////////
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <signal.h>
-#include <string.h>
-
-#include "log.h"
-
-#include "netcon.h"
-
-using namespace std;
-
-static char *thisprog;
-static char usage[] =
-    "-c <host> <service>: Connects to trnetcon server, exchange message, then\n"
-    "  sleeps 10 S, except if option -n is given (sleep forever)\n"
-    "\n"
-    "-s <service>: open service <service>\n"
-    ;
-static void
-Usage()
-{
-    fprintf(stderr, "Usage : %s:\n %s", thisprog, usage);
-    exit(1);
-}
-
-static int     op_flags;
-#define OPT_MOINS 0x1
-#define OPT_s     0x2 /* Server */
-#define OPT_c     0x4 /* Client */
-#define OPT_n     0x8  /* Client sleeps forever */
-
-extern int trycli(char *host, char *serv);
-extern int tryserv(char *serv);
-
-int nloop = 10;
-
-int main(int argc, char **argv)
-{
-    char *host, *serv;
-
-    thisprog = argv[0];
-    argc--;
-    argv++;
-
-    while (argc > 0 && **argv == '-') {
-        (*argv)++;
-        if (!(**argv))
-            /* Cas du "adb - core" */
-        {
-            Usage();
-        }
-        while (**argv)
-            switch (*(*argv)++) {
-            case 's':
-                op_flags |= OPT_s;
-                break;
-            case 'c':
-                op_flags |= OPT_c;
-                break;
-            case 'n':
-                op_flags |= OPT_n;
-                break;
-            default:
-                Usage();
-                break;
-            }
-        argc--;
-        argv++;
-    }
-
-    Logger::getTheLog("")->setLogLevel(Logger::LLDEB2);
-
-    if (op_flags & OPT_c) {
-        if (argc != 2) {
-            Usage();
-        }
-        host = *argv++;
-        argc--;
-        serv = *argv++;
-        argc--;
-        exit(trycli(host, serv));
-    } else if (op_flags & OPT_s) {
-        if (argc != 1) {
-            Usage();
-        }
-        serv = *argv++;
-        argc--;
-        exit(tryserv(serv));
-    } else {
-        Usage();
-    }
-}
-
-
-static char buf[1024];
-static int buflen = 1023;
-static char fromcli[200];
-
-class CliNetconWorker : public NetconWorker {
-public:
-    CliNetconWorker()  : m_count(0) {}
-    int data(NetconData *con, Netcon::Event reason) {
-        LOGDEB("clientdata\n" );
-        if (reason & Netcon::NETCONPOLL_WRITE) {
-            sprintf(fromcli, "Bonjour Bonjour client %d, count %d",
-                    getpid(), m_count);
-            con->setselevents(Netcon::NETCONPOLL_READ);
-            if (con->send(fromcli, strlen(fromcli) + 1) < 0) {
-                fprintf(stderr, "send failed\n");
-                return -1;
-            }
-            m_count++;
-        }
-
-        if (reason & Netcon::NETCONPOLL_READ) {
-            con->setselevents(Netcon::NETCONPOLL_WRITE);
-            int n;
-            if ((n = con->receive(buf, buflen)) < 0) {
-                fprintf(stderr, "receive failed\n");
-                return -1;
-            }
-            if (n == 0) {
-                // EOF, close connection
-                return -1;
-            }
-            buf[n] = 0;
-            fprintf(stderr, "%d received \"%s\"\n", getpid(), buf);
-            if (op_flags & OPT_n) {
-                pause();
-            } else {
-                sleep(1);
-            }
-        }
-        if (m_count >= 10) {
-            fprintf(stderr, "Did 10, enough\n");
-            if (con->getloop()) {
-                con->getloop()->loopReturn(0);
-            }
-        }
-        return 0;
-    }
-private:
-    int m_count;
-};
-
-int trycli(char *host, char *serv)
-{
-    sprintf(fromcli, "Bonjour Bonjour je suis le client %d", getpid());
-
-    NetconCli *clicon = new NetconCli();
-    NetconP con(clicon);
-    if (!con) {
-        fprintf(stderr, "new NetconCli failed\n");
-        return 1;
-    }
-    int port = atoi(serv);
-    int ret = port > 0 ?
-              clicon->openconn(host, port) : clicon->openconn(host, serv);
-    if (ret < 0) {
-        fprintf(stderr, "openconn(%s, %s) failed\n", host, serv);
-        return 1;
-    }
-    fprintf(stderr, "openconn(%s, %s) ok\n", host, serv);
-#ifdef NOSELLOOP
-    for (int i = 0; i < nloop; i++) {
-        if (con->send(fromcli, strlen(fromcli) + 1) < 0) {
-            fprintf(stderr, "%d: Send failed\n", getpid());
-            return 1;
-        }
-        if (con->receive(buf, buflen) < 0) {
-            perror("receive:");
-            fprintf(stderr, "%d: Receive failed\n", getpid());
-            return 1;
-        }
-        fprintf(stderr, "%d Received \"%s\"\n", getpid(), buf);
-        if (op_flags & OPT_n) {
-            pause();
-        } else {
-            sleep(1);
-        }
-    }
-#else
-    std::shared_ptr<NetconWorker> worker =
-        std::shared_ptr<NetconWorker>(new CliNetconWorker());
-    clicon->setcallback(worker);
-    SelectLoop myloop;
-    myloop.addselcon(con, Netcon::NETCONPOLL_WRITE);
-    fprintf(stderr, "client ready\n");
-    ret = myloop.doLoop();
-    if (ret < 0) {
-        fprintf(stderr, "selectloop failed\n");
-        exit(1);
-    }
-    fprintf(stderr, "selectloop returned %d\n", ret);
-#endif
-    return 0;
-}
-
-//////////////////////////////////////////////////////////////////
-// Server-side sample code
-class ServNetconWorker : public NetconWorker {
-public:
-    ServNetconWorker() : m_count(0) {}
-    int data(NetconData *con, Netcon::Event reason) {
-        LOGDEB("serverdata\n" );
-        if (reason & Netcon::NETCONPOLL_WRITE) {
-            con->setselevents(Netcon::NETCONPOLL_READ);
-            char fromserv[200];
-            sprintf(fromserv,
-                    "Du serveur: mon fd pour ce client est  %d, mon compte %d",
-                    con->getfd(), ++m_count);
-            if (con->send(fromserv, strlen(fromserv) + 1) < 0) {
-                fprintf(stderr, "send failed\n");
-                return -1;
-            }
-        }
-        if (reason & Netcon::NETCONPOLL_READ) {
-#define LL 200
-            char buf[LL + 1];
-            int n;
-            if ((n = con->receive(buf, LL)) < 0) {
-                fprintf(stderr, "receive failed\n");
-                return -1;
-            }
-            if (n == 0) {
-                return -1;
-            }
-            buf[n] = 0;
-            fprintf(stderr, "%d received \"%s\"\n", getpid(), buf);
-            con->setselevents(Netcon::NETCONPOLL_READ | Netcon::NETCONPOLL_WRITE);
-        }
-        return 0;
-    }
-private:
-    int m_count;
-};
-
-class MyNetconServLis : public NetconServLis {
-public:
-    MyNetconServLis(SelectLoop& loop)
-        : NetconServLis(), m_loop(loop) {
-    }
-protected:
-    int cando(Netcon::Event reason) {
-        NetconServCon *con = accept();
-        if (con == 0) {
-            return -1;
-        }
-        std::shared_ptr<NetconWorker> worker =
-            std::shared_ptr<NetconWorker>(new ServNetconWorker());
-        con->setcallback(worker);
-        m_loop.addselcon(NetconP(con), NETCONPOLL_READ);
-        return 1;
-    }
-    SelectLoop& m_loop;
-};
-
-NetconP lis;
-
-void
-onexit(int sig)
-{
-    fprintf(stderr, "Onexit: ");
-    if (sig == SIGQUIT) {
-        kill(getpid(), SIGKILL);
-    }
-    fprintf(stderr, "Exiting\n");
-    exit(0);
-}
-
-int tryserv(char *serv)
-{
-    signal(SIGCHLD, SIG_IGN);
-    SelectLoop myloop;
-    MyNetconServLis *servlis = new MyNetconServLis(myloop);
-    lis = NetconP(servlis);
-    if (!lis) {
-        fprintf(stderr, "new NetconServLis failed\n");
-        return 1;
-    }
-
-    // Prepare for cleanup
-    struct sigaction sa;
-    sa.sa_flags = 0;
-    sa.sa_handler = onexit;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGINT, &sa, 0);
-    sigaction(SIGQUIT, &sa, 0);
-    sigaction(SIGTERM, &sa, 0);
-
-    int port = atoi(serv);
-    int ret = port > 0 ?
-              servlis->openservice(port) : servlis->openservice(serv);
-    if (ret < 0) {
-        fprintf(stderr, "openservice(%s) failed\n", serv);
-        return 1;
-    }
-    myloop.addselcon(lis, Netcon::NETCONPOLL_READ);
-    fprintf(stderr, "openservice(%s) Ok\n", serv);
-    if (myloop.doLoop() < 0) {
-        fprintf(stderr, "selectloop failed\n");
-        exit(1);
-    }
-    return 0;
-}
-
-#endif /* TEST_NETCON */
-
