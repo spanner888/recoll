@@ -395,7 +395,7 @@ bool RclConfig::getConfParam(const string &name, bool *bvp, bool shallow) const
 }
 
 bool RclConfig::getConfParam(const string &name, vector<string> *svvp,
-    bool shallow) const
+                             bool shallow) const
 {
     if (!svvp) 
 	return false;
@@ -406,8 +406,20 @@ bool RclConfig::getConfParam(const string &name, vector<string> *svvp,
     return stringToStrings(s, *svvp);
 }
 
+bool RclConfig::getConfParam(const string &name, unordered_set<string> *out,
+                             bool shallow) const
+{
+    vector<string> v;
+    if (!out || !getConfParam(name, &v, shallow)) {
+	return false;
+    }
+    out->clear();
+    out->insert(v.begin(), v.end());
+    return true;
+}
+
 bool RclConfig::getConfParam(const string &name, vector<int> *vip,
-    bool shallow) const
+                             bool shallow) const
 {
     if (!vip) 
 	return false;
@@ -420,7 +432,8 @@ bool RclConfig::getConfParam(const string &name, vector<int> *vip,
 	char *ep;
 	vip->push_back(strtol(vs[i].c_str(), &ep, 0));
 	if (ep == vs[i].c_str()) {
-	    LOGDEB("RclConfig::getConfParam: bad int value in ["  << (name) << "]\n" );
+	    LOGDEB("RclConfig::getConfParam: bad int value in [" << name <<
+                   "]\n");
 	    return false;
 	}
     }
@@ -844,7 +857,8 @@ bool RclConfig::readFieldsConfig(const string& cnferrloc)
 	ConfSimple attrs;
 	FieldTraits ft;
 	if (!valueSplitAttributes(val, ft.pfx, attrs)) {
-	    LOGERR("readFieldsConfig: bad config line for ["  << *it << "]: ["  << (val) << "]\n" );
+	    LOGERR("readFieldsConfig: bad config line for ["  << *it <<
+                   "]: [" << val << "]\n");
 	    return 0;
 	}
 	string tval;
@@ -857,7 +871,8 @@ bool RclConfig::readFieldsConfig(const string& cnferrloc)
 	if (attrs.get("noterms", tval))
 	    ft.noterms = stringToBool(tval);
 	m_fldtotraits[stringtolower(*it)] = ft;
-	LOGDEB2("readFieldsConfig: ["  << *it << "] -> ["  << (ft.pfx) << "] "  << (ft.wdfinc) << " "  << (ft.boost) << "\n" );
+	LOGDEB2("readFieldsConfig: ["  << *it << "] -> ["  << ft.pfx <<
+                "] " << ft.wdfinc << " " << ft.boost << "\n");
     }
 
     // Add prefixes for aliases and build alias-to-canonic map while
@@ -903,7 +918,8 @@ bool RclConfig::readFieldsConfig(const string& cnferrloc)
 #if 0
     for (map<string, FieldTraits>::const_iterator it = m_fldtotraits.begin();
 	 it != m_fldtotraits.end(); it++) {
-	LOGDEB("readFieldsConfig: ["  << *it << "] -> ["  << (it->second.pfx) << "] "  << (it->second.wdfinc) << " "  << (it->second.boost) << "\n" );
+	LOGDEB("readFieldsConfig: ["  << *it << "] -> ["  << it->second.pfx <<
+               "] " << it->second.wdfinc << " "  << it->second.boost << "\n");
     }
 #endif
 

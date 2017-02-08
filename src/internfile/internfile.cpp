@@ -536,6 +536,8 @@ bool FileInterner::dijontorcl(Rcl::Doc& doc)
 		   it->first == cstr_dj_keycharset) {
 	    // don't need/want these.
 	} else {
+            LOGDEB2("dijontorcl: " << m_cfg->fieldCanon(it->first) << " -> " <<
+                    it->second << endl);
 	    doc.addmeta(m_cfg->fieldCanon(it->first), it->second);
 	}
     }
@@ -671,7 +673,7 @@ int FileInterner::addHandler()
 	return ADD_CONTINUE;
     }
 
-    RecollFilter *newflt = getMimeHandler(mimetype, m_cfg);
+    RecollFilter *newflt = getMimeHandler(mimetype, m_cfg, !m_forPreview);
     if (!newflt) {
 	// If we can't find a handler, this doc can't be handled
 	// but there can be other ones so we go on
